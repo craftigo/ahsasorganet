@@ -1,0 +1,26 @@
+{
+  "name": "ahsas-portal",
+  "version": "2.0.0",
+  "private": true,
+  "description": "AHSAS - Activity Management & Ranking System (Full-Stack MERN-Style Architecture with Supabase PostgreSQL)",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:api": "tsx watch api/index.ts",
+    "build": "cd frontend && npm install && npm run build",
+    "typecheck": "tsc --noEmit && cd frontend && tsc --noEmit",
+    "lint": "npm run typecheck",
+    "start": "node dist/api/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.7",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

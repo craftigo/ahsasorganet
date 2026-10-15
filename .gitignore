@@ -1,0 +1,38 @@
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.output/
+
+# Vercel
+.vercel/
+
+# Backups and snapshots (never commit database records or personal data)
+backup/
+backups/
+.legacy_backup/
+*.backup
+*.backup.json
+*.snapshot.json
+scratch/
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
