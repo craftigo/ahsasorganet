@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calendar,
@@ -125,45 +125,36 @@ export default function EduDayRegisterPage(): JSX.Element {
     setTimeout(() => setCopiedUpi(false), 2000);
   };
 
-  // Generate NPCI-compliant UPI payment URL with exact amount (₹313.00)
-  const getUpiUrl = (appScheme: 'upi' | 'gpay' | 'phonepe' | 'paytm' = 'upi') => {
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowDesktopUpiModal(false);
+        setShowResetConfirm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Generate NPCI-compliant universal UPI payment URL with exact amount (₹313.00)
+  const getUpiUrl = () => {
     const payeeVpa = 'alimuhammed0203@oksbi';
     const payeeName = 'HAFIZ MUHAMMADALI THARQAWI';
     const amount = '313.00';
     const note = form.fullName.trim()
       ? `EDU DAY - ${form.fullName.trim().slice(0, 15)}`
-      : 'EDU DAY Jazriyya Fee';
+      : 'EDU DAY Fee';
 
-    const params = new URLSearchParams({
-      pa: payeeVpa,
-      pn: payeeName,
-      am: amount,
-      cu: 'INR',
-      tn: note
-    });
-
-    const queryString = params.toString();
-
-    switch (appScheme) {
-      case 'gpay':
-        return `tez://upi/pay?${queryString}`;
-      case 'phonepe':
-        return `phonepe://pay?${queryString}`;
-      case 'paytm':
-        return `paytmmp://pay?${queryString}`;
-      case 'upi':
-      default:
-        return `upi://pay?${queryString}`;
-    }
+    return `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${encodeURIComponent(amount)}&cu=INR&tn=${encodeURIComponent(note)}`;
   };
 
-  const handleLaunchUpi = (appScheme: 'upi' | 'gpay' | 'phonepe' | 'paytm' = 'upi') => {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const targetUrl = getUpiUrl(appScheme);
+  const handleLaunchUpi = (e?: React.MouseEvent) => {
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) ||
+      (window.innerWidth <= 768 && 'ontouchstart' in window);
 
-    if (isMobile) {
-      window.location.href = targetUrl;
-    } else {
+    if (!isMobile) {
+      if (e) e.preventDefault();
       setShowDesktopUpiModal(true);
     }
   };
@@ -794,7 +785,7 @@ export default function EduDayRegisterPage(): JSX.Element {
                         />
                       </div>
                       <span className="text-[11px] font-semibold text-gray-500 block mt-2.5">
-                        Scan with Google Pay, PhonePe, Paytm, or any UPI App
+                        Scan with any UPI App
                       </span>
                     </div>
                   </div>
@@ -835,7 +826,7 @@ export default function EduDayRegisterPage(): JSX.Element {
                       <button
                         type="button"
                         onClick={handleCopyUpi}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm flex-shrink-0 ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm flex-shrink-0 cursor-pointer ${
                           copiedUpi
                             ? 'bg-emerald-600 text-white'
                             : 'bg-gray-900 hover:bg-black text-white'
@@ -855,56 +846,20 @@ export default function EduDayRegisterPage(): JSX.Element {
                       </button>
                     </div>
 
-                    {/* Auto-filled Direct UPI Pay Button Group */}
-                    <div className="space-y-2.5 pt-1">
-                      {/* Main All-in-One Pay Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchUpi('upi')}
-                        className="flex items-center justify-center gap-2.5 w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-2xl text-sm font-extrabold shadow-md hover:shadow-lg transition-all transform active:scale-[0.99] group cursor-pointer"
+                    {/* Direct UPI Payment Button (Single Universal UPI Button) */}
+                    <div className="space-y-2 pt-1">
+                      <a
+                        href={getUpiUrl()}
+                        onClick={handleLaunchUpi}
+                        className="flex items-center justify-center gap-2.5 w-full py-3.5 sm:py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-2xl text-sm sm:text-base font-extrabold shadow-md hover:shadow-lg transition-all transform active:scale-[0.99] group cursor-pointer text-center"
                       >
-                        <Zap className="w-4 h-4 text-amber-300 fill-amber-300 group-hover:scale-125 transition-transform" />
-                        <span>Pay ₹313 via UPI (Amount Auto-filled)</span>
-                        <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                      </button>
-
-                      {/* Quick Direct App Selectors */}
-                      <div className="bg-white/90 rounded-2xl p-2.5 border border-amber-200/60 shadow-xs space-y-1.5">
-                        <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">
-                          Or open directly in your preferred app with ₹313 pre-filled:
-                        </span>
-                        <div className="grid grid-cols-3 gap-2">
-                          {/* Google Pay */}
-                          <button
-                            type="button"
-                            onClick={() => handleLaunchUpi('gpay')}
-                            className="flex items-center justify-center gap-1.5 py-2 px-1 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 hover:border-blue-500 rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
-                          >
-                            <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
-                            <span className="truncate">Google Pay</span>
-                          </button>
-
-                          {/* PhonePe */}
-                          <button
-                            type="button"
-                            onClick={() => handleLaunchUpi('phonepe')}
-                            className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#5f259f] hover:bg-[#4d1d82] text-white rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
-                          >
-                            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
-                            <span className="truncate">PhonePe</span>
-                          </button>
-
-                          {/* Paytm */}
-                          <button
-                            type="button"
-                            onClick={() => handleLaunchUpi('paytm')}
-                            className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#002e6e] hover:bg-[#001f4d] text-white rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
-                          >
-                            <span className="w-2 h-2 rounded-full bg-sky-400 flex-shrink-0"></span>
-                            <span className="truncate">Paytm</span>
-                          </button>
-                        </div>
-                      </div>
+                        <Zap className="w-5 h-5 text-amber-300 fill-amber-300 group-hover:scale-125 transition-transform flex-shrink-0" />
+                        <span>Pay ₹313 via UPI</span>
+                        <ExternalLink className="w-4 h-4 opacity-80 flex-shrink-0" />
+                      </a>
+                      <p className="text-[11px] text-gray-500 text-center font-medium">
+                        Clicking this button will open your phone's UPI app directly with amount (₹313.00) pre-filled.
+                      </p>
                     </div>
 
                     {/* Instructions List */}
@@ -913,13 +868,13 @@ export default function EduDayRegisterPage(): JSX.Element {
                         How to complete payment:
                       </p>
                       <p className="text-[11px] text-gray-700">
-                        1. Scan the QR code or pay <strong>₹313</strong> using UPI ID <strong>alimuhammed0203@oksbi</strong>.
+                        1. Tap <strong>Pay ₹313 via UPI</strong> (or scan the QR code).
                       </p>
                       <p className="text-[11px] text-gray-700">
-                        2. Take a clear screenshot of the payment receipt showing the <strong>Transaction ID / UTR</strong>.
+                        2. Complete payment in your UPI app and take a screenshot showing the <strong>Transaction ID / UTR</strong>.
                       </p>
                       <p className="text-[11px] text-gray-700">
-                        3. Upload that screenshot in the section below to complete your registration.
+                        3. Upload that screenshot in Step 3 below to complete your registration.
                       </p>
                     </div>
                   </div>
@@ -1110,8 +1065,14 @@ export default function EduDayRegisterPage(): JSX.Element {
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center space-y-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setShowResetConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
               <RotateCcw className="w-6 h-6" />
             </div>
@@ -1143,12 +1104,21 @@ export default function EduDayRegisterPage(): JSX.Element {
 
       {/* Desktop / Laptop UPI Guidance Modal */}
       {showDesktopUpiModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 text-center space-y-4 relative overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in overflow-y-auto"
+          onClick={() => setShowDesktopUpiModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 text-center space-y-4 relative my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Prominent High-Contrast Close Button */}
             <button
               type="button"
               onClick={() => setShowDesktopUpiModal(false)}
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-700 p-1 rounded-lg transition"
+              className="absolute right-4 top-4 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 flex items-center justify-center transition shadow-xs z-10 cursor-pointer"
+              title="Close"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1160,7 +1130,7 @@ export default function EduDayRegisterPage(): JSX.Element {
             <div>
               <h3 className="text-lg font-black text-gray-900">Scan QR Code to Pay ₹313</h3>
               <p className="text-xs text-gray-500 mt-1">
-                You are currently on a computer. Scan this official QR code using Google Pay, PhonePe, or Paytm on your phone:
+                You are currently on a computer. Scan this official QR code using any UPI app on your phone:
               </p>
             </div>
 
@@ -1196,7 +1166,7 @@ export default function EduDayRegisterPage(): JSX.Element {
               <button
                 type="button"
                 onClick={handleCopyUpi}
-                className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm ${
+                className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
                   copiedUpi ? 'bg-emerald-600 text-white' : 'bg-gray-900 hover:bg-black text-white'
                 }`}
               >
@@ -1204,8 +1174,16 @@ export default function EduDayRegisterPage(): JSX.Element {
                 <span>{copiedUpi ? 'UPI ID Copied to Clipboard!' : 'Copy UPI ID'}</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => setShowDesktopUpiModal(false)}
+                className="w-full py-2.5 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition cursor-pointer"
+              >
+                Close Window
+              </button>
+
               <a
-                href={getUpiUrl('upi')}
+                href={getUpiUrl()}
                 className="text-[11px] font-semibold text-amber-700 hover:underline block pt-1"
               >
                 Have a UPI-compatible desktop app? Click here to launch UPI link
