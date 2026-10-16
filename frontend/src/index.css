@@ -27,25 +27,44 @@
   }
 }
 
-/* Custom News Ticker Animation */
+/* Custom News Ticker Animation - Single-line Continuous Marquee */
 .ticker-wrap {
   width: 100%;
   overflow: hidden;
-  box-sizing: content-box;
-}
-
-.ticker-content {
-  display: inline-block;
   white-space: nowrap;
-  animation: ticker 25s linear infinite;
+  box-sizing: border-box;
 }
 
-@keyframes ticker {
-  0% { transform: translate3d(100%, 0, 0); }
-  100% { transform: translate3d(-100%, 0, 0); }
+.ticker-track {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  will-change: transform;
+  animation: tickerScroll 30s linear infinite;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes tickerScroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+    overflow-x: auto;
+  }
 }
 
 /* Smooth Scrolling */
 html {
   scroll-behavior: smooth;
 }
+

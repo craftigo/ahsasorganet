@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import { healthRouter } from './routes/health';
+import { eduDayRouter } from './routes/eduDay';
 import { errorHandler } from './middleware/errorMiddleware';
 
 const app: Express = express();
@@ -22,12 +23,13 @@ app.use((req: Request, res: Response, next) => {
 
 // Mount Routes
 app.use('/api/health', healthRouter);
+app.use('/api/edu-day', eduDayRouter);
 
 // Centralized error handler
 app.use(errorHandler);
 
 // Standalone execution for local development
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL && !process.env.IS_TEST) {
   const PORT = process.env.PORT || 3001;
   app.listen(PORT, () => {
     console.log(`[AHSAS API] Server running locally on http://localhost:${PORT}`);

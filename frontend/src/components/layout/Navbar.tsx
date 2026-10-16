@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Coins, Shield, LayoutDashboard, LogOut, LogIn } from 'lucide-react';
+import { Menu, X, Coins, Shield, LayoutDashboard, LogOut, LogIn, Sparkles, ClipboardList } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 
@@ -51,6 +51,17 @@ export default function Navbar() {
               }`}
             >
               HOME
+            </Link>
+            <Link
+              to="/edu-day"
+              className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
+                isActive('/edu-day') || isActive('/edu-day/register')
+                  ? 'text-white bg-gradient-to-r from-amber-600 to-amber-700 font-extrabold shadow-sm'
+                  : 'text-amber-300 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>EDU DAY</span>
             </Link>
             <Link
               to="/leaderboard"
@@ -115,16 +126,36 @@ export default function Navbar() {
             )}
 
             {/* Auth Actions */}
-            <div className="ml-4 border-l border-gray-700 pl-4 flex items-center gap-3">
+            <div className="ml-4 border-l border-gray-700 pl-4 flex items-center gap-2">
               {user ? (
                 <div className="flex items-center gap-2">
                   <Link
                     to={dashboardPath}
-                    className="flex items-center gap-1.5 text-xs font-bold bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg transition shadow-sm"
+                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition shadow-sm ${
+                      isActive('/admin') || isActive('/dashboard')
+                        ? 'bg-maroon text-white'
+                        : 'bg-white/10 hover:bg-white/20 text-white'
+                    }`}
                   >
-                    {isAdmin ? <Shield className="w-3.5 h-3.5 text-maroon" /> : <LayoutDashboard className="w-3.5 h-3.5" />}
+                    {isAdmin ? <Shield className="w-3.5 h-3.5 text-amber-400" /> : <LayoutDashboard className="w-3.5 h-3.5" />}
                     <span>{isAdmin ? 'ADMIN' : 'DASHBOARD'}</span>
                   </Link>
+
+                  {isAdmin && (
+                    <Link
+                      to="/admin/edu-day-registrations"
+                      className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition shadow-sm ${
+                        isActive('/admin/edu-day-registrations')
+                          ? 'bg-gradient-to-r from-amber-600 to-maroon text-white ring-1 ring-amber-400'
+                          : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
+                      }`}
+                      title="EDU DAY Workshop Registrations"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="hidden xl:inline">EDU DAY REG</span>
+                    </Link>
+                  )}
+
                   <button
                     onClick={handleLogout}
                     title="Sign Out"
@@ -175,6 +206,14 @@ export default function Navbar() {
             className="block hover:bg-maroon px-4 py-2.5 rounded-xl text-sm font-semibold transition"
           >
             HOME
+          </Link>
+          <Link
+            to="/edu-day"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-2 bg-gradient-to-r from-amber-500/20 to-maroon/20 border border-amber-500/30 text-amber-300 font-bold px-4 py-2.5 rounded-xl text-sm transition"
+          >
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>EDU DAY — ANNIVERSARY SPECIAL</span>
           </Link>
           <Link
             to="/leaderboard"
@@ -232,23 +271,35 @@ export default function Navbar() {
             </Link>
           )}
 
-          <div className="pt-4 border-t border-gray-800">
+          <div className="pt-4 border-t border-gray-800 space-y-2">
             {user ? (
-              <div className="flex gap-2">
-                <Link
-                  to={dashboardPath}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex-1 text-center py-2.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition"
-                >
-                  {isAdmin ? 'ADMIN COMMAND CENTER' : 'UNIT DASHBOARD'}
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl text-sm"
-                >
-                  LOGOUT
-                </button>
-              </div>
+              <>
+                {isAdmin && (
+                  <Link
+                    to="/admin/edu-day-registrations"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-maroon text-white transition shadow-sm"
+                  >
+                    <ClipboardList className="w-4 h-4 text-amber-300" />
+                    <span>EDU DAY REGISTRATIONS</span>
+                  </Link>
+                )}
+                <div className="flex gap-2">
+                  <Link
+                    to={dashboardPath}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex-1 text-center py-2.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition"
+                  >
+                    {isAdmin ? 'COMMAND CENTER' : 'UNIT DASHBOARD'}
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl text-sm"
+                  >
+                    LOGOUT
+                  </button>
+                </div>
+              </>
             ) : (
               <Link
                 to="/login"

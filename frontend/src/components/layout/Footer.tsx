@@ -22,6 +22,7 @@ export default function Footer() {
             <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Quick Navigation</h4>
             <ul className="space-y-2 text-xs">
               <li><Link to="/" className="hover:text-white transition">Home</Link></li>
+              <li><Link to="/edu-day" className="hover:text-amber-300 text-amber-400 font-bold transition flex items-center gap-1">★ EDU DAY Anniversary</Link></li>
               <li><Link to="/leaderboard" className="hover:text-white transition">Leaderboard Rankings</Link></li>
               <li><Link to="/committees" className="hover:text-white transition">Committees Directory</Link></li>
               <li><Link to="/notifications" className="hover:text-white transition">Circulars & Notices</Link></li>

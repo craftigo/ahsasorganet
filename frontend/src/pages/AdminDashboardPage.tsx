@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { supabase } from '../lib/supabase';
+import { AdminNavigation } from '../components/layout/AdminNavigation';
 import { Unit, Report, UnitMessage, AdminUser } from '../../../shared/types';
 import {
   ShieldAlert,
@@ -827,6 +828,9 @@ export const AdminDashboardPage: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Admin Navigation Tabs */}
+      <AdminNavigation />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Right / Main 2 Columns: Pending Reports, Chat, Notifications */}

@@ -85,3 +85,62 @@ export interface AdminUser {
   email: string;
   created_at: string;
 }
+
+export type EduDayRegistrationStatus = 'submitted' | 'verified' | 'rejected' | 'attended';
+
+export interface EduDayRegistration {
+  id: string;
+  reference_no: string;
+  full_name: string;
+  place: string;
+  institute_workplace: string;
+  phone_number: string;
+  whatsapp_number: string;
+  tajweed_kithabs: string;
+  payment_screenshot_url: string;
+  applicant_photo_url?: string | null;
+  status: EduDayRegistrationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EduDayRegistrationInput {
+  full_name: string;
+  place: string;
+  institute_workplace: string;
+  phone_number: string;
+  whatsapp_number: string;
+  tajweed_kithabs: string;
+  payment_screenshot_url: string;
+  applicant_photo_url?: string | null;
+}
+
+export interface EduDayRegistrationSummary {
+  total: number;
+  submitted: number;
+  verified: number;
+  rejected: number;
+  attended: number;
+}
+
+export interface EduDayRegistrationsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface EduDayRegistrationsResponse {
+  registrations: EduDayRegistration[];
+  pagination: EduDayRegistrationsPagination;
+  summary: EduDayRegistrationSummary;
+  configurationPending?: boolean;
+  configurationMessage?: string;
+}
+
+export interface EduDaySignedUrlResponse {
+  success: boolean;
+  signedUrl: string;
+  expiresIn: number;
+  fileName: string;
+}
