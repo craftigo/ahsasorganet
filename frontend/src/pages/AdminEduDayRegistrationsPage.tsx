@@ -1238,25 +1238,32 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
                 {/* 8. Fee Payment Screenshot (Private Secure Action) */}
                 <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200 flex flex-col justify-between">
                   <div>
-                    <span className="block text-[11px] font-bold uppercase tracking-wider text-amber-800 mb-1">
-                      8. Fee Payment Screenshot (₹313)
-                    </span>
-                    <span className="text-xs text-gray-500 block mb-3">
-                      Stored securely in private Storage bucket.
-                    </span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                        8. Fee Payment Verification (₹313)
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                        ₹313
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-gray-700 bg-white/90 rounded-lg p-2.5 border border-amber-200/60 mb-3 space-y-0.5 shadow-xs">
+                      <div className="text-gray-400 text-[10px] uppercase font-bold">Official Beneficiary Account:</div>
+                      <div className="font-bold text-gray-900 text-xs">HAFIZ MUHAMMADALI THARQAWI</div>
+                      <div className="font-mono text-amber-800 text-[11px] font-semibold">alimuhammed0203@oksbi</div>
+                    </div>
                   </div>
                   <button
                     onClick={() =>
                       handleViewPrivateFile(
                         selectedRegistration.id,
                         'payment-proof',
-                        `Fee Payment Screenshot — ${selectedRegistration.reference_no}`
+                        `Fee Payment Screenshot (₹313) — ${selectedRegistration.reference_no}`
                       )
                     }
                     className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>View Payment Screenshot</span>
+                    <span>View Payment Screenshot (₹313)</span>
                   </button>
                 </div>
 

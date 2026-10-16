@@ -17,7 +17,12 @@ import {
   Phone,
   MessageSquare,
   User,
-  Home
+  Home,
+  QrCode,
+  Copy,
+  Check,
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { EduDayPoster } from '../components/events/EduDayPoster';
@@ -45,6 +50,9 @@ const initialFormState: FormState = {
 export default function EduDayRegisterPage(): JSX.Element {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Payment UI state
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   // File States
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
@@ -106,6 +114,13 @@ export default function EduDayRegisterPage(): JSX.Element {
         return updated;
       });
     }
+  };
+
+  // Copy UPI ID to clipboard
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText('alimuhammed0203@oksbi');
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2000);
   };
 
   // Payment Screenshot Selection
@@ -714,9 +729,118 @@ export default function EduDayRegisterPage(): JSX.Element {
               {errors.tajweedKithabs && <p className="text-xs text-red-600 mt-1 font-medium">{errors.tajweedKithabs}</p>}
             </div>
 
-            <div className="pt-4 border-t border-gray-100">
+            {/* Step 2: Payment Details & QR Code Section */}
+            <div className="pt-6 border-t border-gray-100">
+              <div className="bg-gradient-to-br from-amber-500/10 via-amber-50/60 to-emerald-500/10 rounded-3xl border border-amber-200/90 shadow-sm p-6 sm:p-8 mb-8 overflow-hidden relative">
+                <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 sm:gap-8">
+                  
+                  {/* Left: Official Payment QR Code */}
+                  <div className="flex flex-col items-center flex-shrink-0 w-full md:w-auto">
+                    <div className="bg-white p-4 rounded-2xl shadow-lg border border-amber-200/80 max-w-[240px] text-center">
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 mb-2 flex items-center justify-center gap-1.5">
+                        <QrCode className="w-4 h-4 text-amber-600" />
+                        <span>Official Payment QR</span>
+                      </div>
+                      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-inner p-1">
+                        <img
+                          src="/assets/edu_day_payment_qr.jpg"
+                          alt="EDU DAY Payment QR Code - Hafiz Muhammadali Tharqawi"
+                          className="w-48 h-auto object-contain mx-auto rounded-lg"
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-gray-500 block mt-2.5">
+                        Scan with Google Pay, PhonePe, Paytm, or any UPI App
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: Payment Details & Direct Actions */}
+                  <div className="flex-1 space-y-4 w-full">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-600 text-white shadow-sm flex items-center gap-1.5">
+                        <Ticket className="w-3.5 h-3.5" />
+                        <span>Step 2: Pay Workshop Fee</span>
+                      </span>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-gray-400 block uppercase tracking-wider">Registration Fee</span>
+                        <span className="text-2xl sm:text-3xl font-black text-amber-700">₹313</span>
+                      </div>
+                    </div>
+
+                    {/* Beneficiary Name */}
+                    <div className="p-3.5 bg-white/95 rounded-2xl border border-amber-200/70 shadow-xs">
+                      <span className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-1">
+                        Account / Beneficiary Name
+                      </span>
+                      <div className="font-extrabold text-sm sm:text-base text-gray-900 leading-snug">
+                        HAFIZ MUHAMMADALI THARQAWI DARIMI HAJIYARPALLI
+                      </div>
+                    </div>
+
+                    {/* UPI ID & Copy Action */}
+                    <div className="p-3.5 bg-white/95 rounded-2xl border border-amber-200/70 shadow-xs flex items-center justify-between gap-3">
+                      <div>
+                        <span className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-0.5">
+                          Official UPI ID
+                        </span>
+                        <div className="font-mono font-black text-base text-amber-900 tracking-wide select-all">
+                          alimuhammed0203@oksbi
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyUpi}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm flex-shrink-0 ${
+                          copiedUpi
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-900 hover:bg-black text-white'
+                        }`}
+                      >
+                        {copiedUpi ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-white" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy UPI ID</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Mobile Direct UPI Pay Button */}
+                    <a
+                      href="upi://pay?pa=alimuhammed0203@oksbi&pn=HAFIZ%20MUHAMMADALI%20THARQAWI%20DARIMI%20HAJIYARPALLI&am=313&cu=INR&tn=EDU%20DAY%20Jazriyya%20Workshop%20Fee"
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-bold shadow-md transition group"
+                    >
+                      <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <span>Pay ₹313 via UPI App (Mobile)</span>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                    </a>
+
+                    {/* Instructions List */}
+                    <div className="bg-amber-100/70 rounded-xl p-3 text-xs text-amber-950 space-y-1 border border-amber-200/60">
+                      <p className="font-bold text-[11px] uppercase tracking-wide text-amber-900">
+                        How to complete payment:
+                      </p>
+                      <p className="text-[11px] text-gray-700">
+                        1. Scan the QR code or pay <strong>₹313</strong> using UPI ID <strong>alimuhammed0203@oksbi</strong>.
+                      </p>
+                      <p className="text-[11px] text-gray-700">
+                        2. Take a clear screenshot of the payment receipt showing the <strong>Transaction ID / UTR</strong>.
+                      </p>
+                      <p className="text-[11px] text-gray-700">
+                        3. Upload that screenshot in the section below to complete your registration.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <h3 className="text-sm font-black text-gray-900 mb-1 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-maroon" /> Document & Image Verification
+                <Lock className="w-4 h-4 text-maroon" /> Step 3: Upload Proof &amp; Complete Registration
               </h3>
               <p className="text-xs text-gray-500 mb-6">
                 Uploaded documents are securely processed for registration validation and will not be displayed in public directories.
