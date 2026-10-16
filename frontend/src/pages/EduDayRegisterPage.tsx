@@ -21,8 +21,9 @@ import {
   QrCode,
   Copy,
   Check,
-  Smartphone,
-  ExternalLink
+  ExternalLink,
+  X,
+  Zap
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { EduDayPoster } from '../components/events/EduDayPoster';
@@ -53,6 +54,7 @@ export default function EduDayRegisterPage(): JSX.Element {
 
   // Payment UI state
   const [copiedUpi, setCopiedUpi] = useState(false);
+  const [showDesktopUpiModal, setShowDesktopUpiModal] = useState(false);
 
   // File States
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
@@ -121,6 +123,49 @@ export default function EduDayRegisterPage(): JSX.Element {
     navigator.clipboard.writeText('alimuhammed0203@oksbi');
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2000);
+  };
+
+  // Generate NPCI-compliant UPI payment URL with exact amount (₹313.00)
+  const getUpiUrl = (appScheme: 'upi' | 'gpay' | 'phonepe' | 'paytm' = 'upi') => {
+    const payeeVpa = 'alimuhammed0203@oksbi';
+    const payeeName = 'HAFIZ MUHAMMADALI THARQAWI';
+    const amount = '313.00';
+    const note = form.fullName.trim()
+      ? `EDU DAY - ${form.fullName.trim().slice(0, 15)}`
+      : 'EDU DAY Jazriyya Fee';
+
+    const params = new URLSearchParams({
+      pa: payeeVpa,
+      pn: payeeName,
+      am: amount,
+      cu: 'INR',
+      tn: note
+    });
+
+    const queryString = params.toString();
+
+    switch (appScheme) {
+      case 'gpay':
+        return `tez://upi/pay?${queryString}`;
+      case 'phonepe':
+        return `phonepe://pay?${queryString}`;
+      case 'paytm':
+        return `paytmmp://pay?${queryString}`;
+      case 'upi':
+      default:
+        return `upi://pay?${queryString}`;
+    }
+  };
+
+  const handleLaunchUpi = (appScheme: 'upi' | 'gpay' | 'phonepe' | 'paytm' = 'upi') => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const targetUrl = getUpiUrl(appScheme);
+
+    if (isMobile) {
+      window.location.href = targetUrl;
+    } else {
+      setShowDesktopUpiModal(true);
+    }
   };
 
   // Payment Screenshot Selection
@@ -810,15 +855,57 @@ export default function EduDayRegisterPage(): JSX.Element {
                       </button>
                     </div>
 
-                    {/* Mobile Direct UPI Pay Button */}
-                    <a
-                      href="upi://pay?pa=alimuhammed0203@oksbi&pn=HAFIZ%20MUHAMMADALI%20THARQAWI%20DARIMI%20HAJIYARPALLI&am=313&cu=INR&tn=EDU%20DAY%20Jazriyya%20Workshop%20Fee"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-bold shadow-md transition group"
-                    >
-                      <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                      <span>Pay ₹313 via UPI App (Mobile)</span>
-                      <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                    </a>
+                    {/* Auto-filled Direct UPI Pay Button Group */}
+                    <div className="space-y-2.5 pt-1">
+                      {/* Main All-in-One Pay Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchUpi('upi')}
+                        className="flex items-center justify-center gap-2.5 w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-2xl text-sm font-extrabold shadow-md hover:shadow-lg transition-all transform active:scale-[0.99] group cursor-pointer"
+                      >
+                        <Zap className="w-4 h-4 text-amber-300 fill-amber-300 group-hover:scale-125 transition-transform" />
+                        <span>Pay ₹313 via UPI (Amount Auto-filled)</span>
+                        <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                      </button>
+
+                      {/* Quick Direct App Selectors */}
+                      <div className="bg-white/90 rounded-2xl p-2.5 border border-amber-200/60 shadow-xs space-y-1.5">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">
+                          Or open directly in your preferred app with ₹313 pre-filled:
+                        </span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {/* Google Pay */}
+                          <button
+                            type="button"
+                            onClick={() => handleLaunchUpi('gpay')}
+                            className="flex items-center justify-center gap-1.5 py-2 px-1 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 hover:border-blue-500 rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+                            <span className="truncate">Google Pay</span>
+                          </button>
+
+                          {/* PhonePe */}
+                          <button
+                            type="button"
+                            onClick={() => handleLaunchUpi('phonepe')}
+                            className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#5f259f] hover:bg-[#4d1d82] text-white rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                            <span className="truncate">PhonePe</span>
+                          </button>
+
+                          {/* Paytm */}
+                          <button
+                            type="button"
+                            onClick={() => handleLaunchUpi('paytm')}
+                            className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#002e6e] hover:bg-[#001f4d] text-white rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-sky-400 flex-shrink-0"></span>
+                            <span className="truncate">Paytm</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Instructions List */}
                     <div className="bg-amber-100/70 rounded-xl p-3 text-xs text-amber-950 space-y-1 border border-amber-200/60">
@@ -1049,6 +1136,80 @@ export default function EduDayRegisterPage(): JSX.Element {
               >
                 Yes, Reset Form
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop / Laptop UPI Guidance Modal */}
+      {showDesktopUpiModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 text-center space-y-4 relative overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowDesktopUpiModal(false)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-700 p-1 rounded-lg transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-sm">
+              <QrCode className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-gray-900">Scan QR Code to Pay ₹313</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                You are currently on a computer. Scan this official QR code using Google Pay, PhonePe, or Paytm on your phone:
+              </p>
+            </div>
+
+            {/* QR Code in Modal */}
+            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200 inline-block mx-auto shadow-inner">
+              <img
+                src="/assets/edu_day_payment_qr.jpg"
+                alt="Payment QR"
+                className="w-48 h-auto object-contain mx-auto rounded-xl shadow-xs"
+              />
+              <div className="mt-2.5 text-xs font-black text-amber-900 flex items-center justify-center gap-1">
+                <span>Amount:</span>
+                <span className="text-base text-amber-700">₹313.00</span>
+                <span className="text-[10px] text-gray-500 font-normal">(Fixed Fee)</span>
+              </div>
+            </div>
+
+            {/* Account Details in Modal */}
+            <div className="bg-gray-50 rounded-2xl p-3.5 border border-gray-200 text-left text-xs space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-[10px] uppercase font-bold">UPI ID:</span>
+                <span className="font-mono font-bold text-gray-900 select-all">alimuhammed0203@oksbi</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-[10px] uppercase font-bold">Payee Name:</span>
+                <span className="font-semibold text-gray-800 text-[11px] truncate max-w-[210px]">
+                  HAFIZ MUHAMMADALI THARQAWI
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCopyUpi}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm ${
+                  copiedUpi ? 'bg-emerald-600 text-white' : 'bg-gray-900 hover:bg-black text-white'
+                }`}
+              >
+                {copiedUpi ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedUpi ? 'UPI ID Copied to Clipboard!' : 'Copy UPI ID'}</span>
+              </button>
+
+              <a
+                href={getUpiUrl('upi')}
+                className="text-[11px] font-semibold text-amber-700 hover:underline block pt-1"
+              >
+                Have a UPI-compatible desktop app? Click here to launch UPI link
+              </a>
             </div>
           </div>
         </div>
