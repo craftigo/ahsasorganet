@@ -184,10 +184,9 @@ DROP POLICY IF EXISTS "Admin select edu_day_registrations" ON public.edu_day_reg
 DROP POLICY IF EXISTS "Admin update edu_day_registrations" ON public.edu_day_registrations;
 DROP POLICY IF EXISTS "Admin delete edu_day_registrations" ON public.edu_day_registrations;
 
--- SECURITY MANDATE: ZERO direct public INSERT policy.
--- Anonymous visitors cannot insert via PostgREST client calls.
--- All public submissions must pass through the Express API (/api/edu-day/register)
--- which uses service_role credentials after validating inputs and rate limits.
+-- SECURITY: Public inserts are strictly sanitized by trigger trg_edu_day_registrations_sanitize_insert
+-- to enforce status = 'submitted', generate reference_no from sequence, and set UTC timestamps.
+-- Direct SELECT, UPDATE, and DELETE are strictly restricted to authenticated administrators.
 
 -- Policy A: Admin Select — Only verified administrators can view registrations
 CREATE POLICY "Admin select edu_day_registrations"
