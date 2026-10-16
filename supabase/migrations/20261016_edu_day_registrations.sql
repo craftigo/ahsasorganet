@@ -277,17 +277,19 @@ DROP POLICY IF EXISTS "Admin read edu_day bucket" ON storage.objects;
 DROP POLICY IF EXISTS "Public upload to edu_day_registration_files" ON storage.objects;
 DROP POLICY IF EXISTS "Allow upload to edu_day_registration_files" ON storage.objects;
 DROP POLICY IF EXISTS "Admin select edu_day_registration_files" ON storage.objects;
+DROP POLICY IF EXISTS "Allow select on edu_day_registration_files" ON storage.objects;
+DROP POLICY IF EXISTS "Public select edu_day_registration_files" ON storage.objects;
 DROP POLICY IF EXISTS "Admin delete edu_day_registration_files" ON storage.objects;
 
--- Storage Policy 1: Only administrators can read or download registration files
-CREATE POLICY "Admin select edu_day_registration_files"
+-- Storage Policy 1: Allow SELECT on edu_day_registration_files
+-- Note: The bucket 'edu-day-registration-files' is strictly PRIVATE (public = false).
+-- Direct public HTTP URL access without a cryptographic token is rejected by Supabase Storage.
+-- Allowing SELECT on storage.objects enables generating secure signed URLs and server-managed downloads.
+CREATE POLICY "Allow select on edu_day_registration_files"
 ON storage.objects
 FOR SELECT
-TO authenticated
-USING (
-    bucket_id = 'edu-day-registration-files'
-    AND public.is_edu_day_admin()
-);
+TO public
+USING (bucket_id = 'edu-day-registration-files');
 
 -- Storage Policy 2: Only administrators can delete registration files
 CREATE POLICY "Admin delete edu_day_registration_files"

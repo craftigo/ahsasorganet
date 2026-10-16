@@ -523,33 +523,167 @@ eduDayRouter.get(
         return;
       }
 
-      // Generate short-lived signed URL (300 seconds = 5 minutes)
-      const { data: signedData, error: signedError } = await supabaseServer.storage
-        .from('edu-day-registration-files')
-        .createSignedUrl(cleanPath, 300);
+      // Use authenticated client if available, fallback to supabaseServer
+      const client = req.supabaseUserClient || supabaseServer;
 
-      if (signedError) {
-        const errMsg = (signedError.message || '').toLowerCase();
-        if (errMsg.includes('not found') || errMsg.includes('bucket')) {
-          res.status(503).json({
-            error: 'Storage bucket `edu-day-registration-files` has not yet been created in Supabase.'
-          });
-          return;
+      // Generate signed URL (3600 seconds = 1 hour)
+      let signedUrl: string | null = null;
+      let signedError: any = null;
+
+      const { data: signedData, error: sErr } = await client.storage
+        .from('edu-day-registration-files')
+        .createSignedUrl(cleanPath, 3600);
+
+      if (!sErr && signedData?.signedUrl) {
+        signedUrl = signedData.signedUrl;
+      } else {
+        signedError = sErr;
+        // If user client failed or returned error, attempt fallback to server client
+        if (client !== supabaseServer) {
+          const { data: serverSignedData } = await supabaseServer.storage
+            .from('edu-day-registration-files')
+            .createSignedUrl(cleanPath, 3600);
+          if (serverSignedData?.signedUrl) {
+            signedUrl = serverSignedData.signedUrl;
+            signedError = null;
+          }
         }
-        throw signedError;
       }
 
       const fileName = cleanPath.split('/').pop() || `${reg.reference_no}_${fileType}.jpg`;
+      const viewUrl = `/api/edu-day/admin/registrations/${id}/files/${fileType}/view`;
+
+      if (signedError && !signedUrl) {
+        const errMsg = (signedError.message || '').toLowerCase();
+        console.warn(`[API] Storage signed URL attempt notice for ${cleanPath}:`, signedError.message);
+
+        // If bucket specifically missing
+        if (errMsg.includes('nosuchbucket') || (errMsg.includes('bucket') && !errMsg.includes('key') && !errMsg.includes('object'))) {
+          res.status(503).json({
+            error: 'Storage bucket `edu-day-registration-files` has not yet been initialized in Supabase.'
+          });
+          return;
+        }
+
+        // Return viewUrl as primary fallback if signedUrl generation was blocked by RLS
+        res.json({
+          success: true,
+          signedUrl: viewUrl,
+          viewUrl,
+          expiresIn: 3600,
+          fileName,
+          isDirectStream: true
+        });
+        return;
+      }
 
       res.json({
         success: true,
-        signedUrl: signedData.signedUrl,
-        expiresIn: 300,
+        signedUrl,
+        viewUrl,
+        expiresIn: 3600,
         fileName
       });
     } catch (err: any) {
       console.error('[API] Admin signed URL error:', err);
       res.status(500).json({ error: 'Failed to generate secure file access: ' + (err.message || 'Server error') });
+    }
+  }
+);
+
+/**
+ * Directly stream private registration image (for inline preview in Admin Dashboard)
+ * GET /api/edu-day/admin/registrations/:id/files/:fileType/view
+ */
+eduDayRouter.get(
+  '/admin/registrations/:id/files/:fileType/view',
+  requireAuth,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { id, fileType } = req.params;
+
+    if (!['payment-proof', 'applicant-photo'].includes(fileType)) {
+      res.status(400).json({ error: 'Invalid file type. Must be payment-proof or applicant-photo.' });
+      return;
+    }
+
+    try {
+      const { data: reg, error: regError } = await supabaseServer
+        .from('edu_day_registrations')
+        .select('id, reference_no, payment_screenshot_url, applicant_photo_url')
+        .eq('id', id)
+        .single();
+
+      if (regError || !reg) {
+        res.status(404).json({ error: 'Registration record not found.' });
+        return;
+      }
+
+      const rawPath = fileType === 'payment-proof' ? reg.payment_screenshot_url : reg.applicant_photo_url;
+      if (!rawPath) {
+        res.status(404).json({
+          error: fileType === 'applicant-photo' ? 'No applicant photo uploaded.' : 'No payment proof uploaded.'
+        });
+        return;
+      }
+
+      const cleanPath = rawPath.trim().replace(/^edu-day-registration-files\//, '');
+      const client = req.supabaseUserClient || supabaseServer;
+
+      // Try downloading binary directly
+      let downloadData: Blob | null = null;
+      const { data: dData, error: dErr } = await client.storage
+        .from('edu-day-registration-files')
+        .download(cleanPath);
+
+      if (!dErr && dData) {
+        downloadData = dData;
+      } else if (client !== supabaseServer) {
+        const { data: serverDData } = await supabaseServer.storage
+          .from('edu-day-registration-files')
+          .download(cleanPath);
+        if (serverDData) {
+          downloadData = serverDData;
+        }
+      }
+
+      if (downloadData) {
+        const arrayBuf = await downloadData.arrayBuffer();
+        const buffer = Buffer.from(arrayBuf);
+        const ext = (cleanPath.split('.').pop() || 'jpg').toLowerCase();
+        const mimeMap: Record<string, string> = {
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          png: 'image/png',
+          webp: 'image/webp'
+        };
+        const contentType = mimeMap[ext] || 'image/jpeg';
+        const fileName = cleanPath.split('/').pop() || `${reg.reference_no}_${fileType}.${ext}`;
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.send(buffer);
+        return;
+      }
+
+      // Fallback: If direct download was blocked, attempt redirecting to a generated signed URL
+      const { data: signedData } = await client.storage
+        .from('edu-day-registration-files')
+        .createSignedUrl(cleanPath, 3600);
+
+      if (signedData?.signedUrl) {
+        res.redirect(signedData.signedUrl);
+        return;
+      }
+
+      res.status(404).json({
+        error: 'The requested file could not be retrieved from storage. Please verify the storage bucket policy in Supabase.'
+      });
+    } catch (err: any) {
+      console.error('[API] Admin direct file view error:', err);
+      res.status(500).json({ error: 'Failed to retrieve file: ' + (err.message || 'Server error') });
     }
   }
 );

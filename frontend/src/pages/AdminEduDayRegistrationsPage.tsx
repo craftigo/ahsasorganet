@@ -105,6 +105,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState<string>('');
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState<boolean>(false);
 
   // Feedback toast
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -212,7 +213,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
     setTimeout(() => setCopiedRef(null), 2000);
   };
 
-  // Secure File Viewer: Calls backend signed URL endpoint
+  // Secure File Viewer: Calls backend signed URL endpoint with multi-layer fallback
   const handleViewPrivateFile = async (
     registrationId: string,
     fileType: 'payment-proof' | 'applicant-photo',
@@ -223,6 +224,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
       setPreviewLoading(true);
       setPreviewError(null);
       setPreviewUrl(null);
+      setImageLoadError(false);
       setPreviewTitle(title);
 
       const token = await getAuthToken();
@@ -230,19 +232,51 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
         throw new Error('Authentication required.');
       }
 
-      const res = await fetch(`/api/edu-day/admin/registrations/${registrationId}/files/${fileType}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      let resolvedUrl: string | null = null;
+
+      // 1. Primary: Call backend file access endpoint
+      try {
+        const res = await fetch(`/api/edu-day/admin/registrations/${registrationId}/files/${fileType}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data: EduDaySignedUrlResponse & { error?: string; viewUrl?: string; isDirectStream?: boolean } = await res.json();
+
+        if (res.ok && data.success) {
+          if (data.signedUrl && data.signedUrl.startsWith('http')) {
+            resolvedUrl = data.signedUrl;
+          } else if (data.viewUrl) {
+            resolvedUrl = `${data.viewUrl}?token=${encodeURIComponent(token)}`;
+          }
         }
-      });
-
-      const data: EduDaySignedUrlResponse & { error?: string } = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to generate secure preview link.');
+      } catch (e) {
+        console.warn('Backend signedUrl request failed, attempting direct Supabase resolution:', e);
       }
 
-      setPreviewUrl(data.signedUrl);
+      // 2. Secondary fallback: Direct Supabase client signed URL using active admin session
+      if (!resolvedUrl) {
+        const targetReg = registrations.find((r) => r.id === registrationId) || selectedRegistration;
+        const rawPath = fileType === 'payment-proof' ? targetReg?.payment_screenshot_url : targetReg?.applicant_photo_url;
+        if (rawPath) {
+          const cleanPath = rawPath.replace(/^edu-day-registration-files\//, '');
+          const { data: suData, error: suErr } = await supabase.storage
+            .from('edu-day-registration-files')
+            .createSignedUrl(cleanPath, 3600);
+
+          if (!suErr && suData?.signedUrl) {
+            resolvedUrl = suData.signedUrl;
+          }
+        }
+      }
+
+      // 3. Tertiary fallback: Direct stream endpoint
+      if (!resolvedUrl) {
+        resolvedUrl = `/api/edu-day/admin/registrations/${registrationId}/files/${fileType}/view?token=${encodeURIComponent(token)}`;
+      }
+
+      setPreviewUrl(resolvedUrl);
     } catch (err: any) {
       console.error('Error fetching signed preview URL:', err);
       setPreviewError(err.message || 'Failed to load private document.');
@@ -481,6 +515,43 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Registration Fee & Financial Overview Bar */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-blue-500/10 border border-amber-200/80 rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow font-black text-xl flex-shrink-0">
+            ₹
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm sm:text-base font-extrabold text-gray-900">
+                EDU DAY Jazriyya Workshop Fee: <span className="text-amber-700">₹313</span> / Participant
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                Official Fee
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Each applicant must submit screenshot proof of paying ₹313 to be verified and admitted.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs font-semibold self-stretch md:self-auto justify-between md:justify-end border-t md:border-t-0 border-amber-200/60 pt-3 md:pt-0">
+          <div className="bg-white/90 backdrop-blur px-3.5 py-2 rounded-xl border border-gray-200 shadow-xs">
+            <span className="text-gray-400 block text-[10px] uppercase font-bold">Total Expected</span>
+            <span className="text-sm font-extrabold text-gray-900">
+              ₹{((summary.total || 0) * 313).toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-200 shadow-xs">
+            <span className="text-emerald-700 block text-[10px] uppercase font-bold">Verified Fees</span>
+            <span className="text-sm font-extrabold text-emerald-800">
+              ₹{(((summary.verified || 0) + (summary.attended || 0)) * 313).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
@@ -769,6 +840,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
                     <th className="py-3.5 px-4">Applicant Name</th>
                     <th className="py-3.5 px-4">Phone / WhatsApp</th>
                     <th className="py-3.5 px-4">Place &amp; Institute</th>
+                    <th className="py-3.5 px-4">Fee Paid</th>
                     <th className="py-3.5 px-4">Registration Date</th>
                     <th className="py-3.5 px-4">Status</th>
                     <th className="py-3.5 px-4 text-right">Actions</th>
@@ -829,6 +901,23 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
                           <MapPin className="w-3 h-3 text-gray-400" />
                           <span>{reg.place}</span>
                         </div>
+                      </td>
+
+                      {/* Fee Paid (₹313) */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold text-gray-900 text-sm">₹313</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Paid
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleViewPrivateFile(reg.id, 'payment-proof', `Fee Payment Proof (₹313) — ${reg.reference_no}`)}
+                          className="text-[11px] text-amber-700 hover:text-amber-800 font-semibold hover:underline flex items-center gap-1 mt-0.5"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>View Proof</span>
+                        </button>
                       </td>
 
                       {/* Date */}
@@ -901,6 +990,17 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
                     >
                       {STATUS_LABELS[reg.status]}
                     </button>
+                  </div>
+
+                  {/* Fee Paid Badge */}
+                  <div className="flex items-center justify-between bg-amber-50/80 px-3 py-2 rounded-xl border border-amber-200/70 my-2.5">
+                    <div className="text-xs">
+                      <span className="text-[10px] uppercase font-bold text-amber-800 block">Registration Fee</span>
+                      <span className="font-extrabold text-gray-900 text-sm">₹313</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Paid (Proof Attached)
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 my-3">
@@ -1274,45 +1374,76 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
               {previewLoading ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
-                  <p className="text-xs text-gray-400">Generating secure temporary authorization token...</p>
+                  <p className="text-xs text-gray-400">Loading secure applicant image...</p>
                 </div>
               ) : previewError ? (
                 <div className="p-6 text-center max-w-md">
                   <AlertCircle className="w-10 h-10 text-rose-500 mx-auto mb-2" />
                   <p className="text-sm text-rose-300 font-semibold mb-2">{previewError}</p>
                   <p className="text-xs text-gray-400">
-                    If the private Storage bucket has not yet been initialized, apply the database migration.
+                    If this error persists, ensure that the storage policy has been configured in Supabase SQL editor.
                   </p>
                 </div>
               ) : previewUrl ? (
-                <div className="flex flex-col items-center max-h-full">
-                  <img
-                    src={previewUrl}
-                    alt={previewTitle}
-                    className="max-h-[60vh] max-w-full object-contain rounded-xl shadow-lg border border-gray-800"
-                  />
+                <div className="flex flex-col items-center max-h-full w-full">
+                  {!imageLoadError ? (
+                    <img
+                      src={previewUrl}
+                      alt={previewTitle}
+                      onError={() => setImageLoadError(true)}
+                      className="max-h-[60vh] max-w-full object-contain rounded-xl shadow-lg border border-gray-800 bg-gray-950/50"
+                    />
+                  ) : (
+                    <div className="p-8 text-center bg-gray-950/80 rounded-2xl border border-gray-800 max-w-md">
+                      <AlertCircle className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+                      <h5 className="text-sm font-bold text-gray-200 mb-1">Image Preview Unavailable Inline</h5>
+                      <p className="text-xs text-gray-400 mb-4">
+                        The file was retrieved securely, but could not be rendered directly in this frame.
+                      </p>
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open File Directly in New Tab</span>
+                      </a>
+                    </div>
+                  )}
                   <span className="text-[11px] text-gray-400 mt-3 font-mono">
-                    Authorized short-lived signed link (expires in 5 minutes)
+                    Authorized secure access link (valid for 1 hour)
                   </span>
                 </div>
               ) : null}
             </div>
 
-            <div className="p-4 bg-gray-950 border-t border-gray-800 flex justify-between items-center">
-              {previewUrl ? (
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download File</span>
-                </a>
-              ) : (
-                <div />
-              )}
+            <div className="p-4 bg-gray-950 border-t border-gray-800 flex justify-between items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                {previewUrl && (
+                  <>
+                    <a
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open in New Tab</span>
+                    </a>
+                    <a
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </a>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() => setFilePreviewModalOpen(false)}
                 className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-bold transition"

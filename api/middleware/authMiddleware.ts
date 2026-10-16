@@ -17,12 +17,18 @@ const MASTER_ADMINS = ['ahsaslab@gmail.com', 'mmmed8833@gmail.com'];
  */
 export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token: string | undefined;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (typeof req.query?.token === 'string' && req.query.token.trim().length > 0) {
+    token = req.query.token.trim();
+  }
+
+  if (!token) {
     res.status(401).json({ error: 'Unauthorized. Authentication token is missing.' });
     return;
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const { data: { user }, error } = await supabaseServer.auth.getUser(token);
