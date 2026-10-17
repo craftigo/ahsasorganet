@@ -48,6 +48,31 @@ function checkRateLimit(ip: string, type: 'upload' | 'register' = 'upload'): boo
 }
 
 /**
+ * Diagnostic Endpoint to check Supabase configuration & connectivity
+ * GET /api/edu-day/status
+ */
+eduDayRouter.get('/status', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const testPath = `edu-day/test_${Date.now()}.jpg`;
+    const storageRes = await supabaseServer.storage
+      .from('edu-day-registration-files')
+      .createSignedUploadUrl(testPath);
+
+    res.json({
+      status: 'ok',
+      storageSuccess: !storageRes.error,
+      storageError: storageRes.error ? {
+        message: storageRes.error.message,
+        statusCode: (storageRes.error as any).statusCode || (storageRes.error as any).status
+      } : null,
+      serverTime: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * Step 1 of Secure Upload Workflow: Request a short-lived signed upload URL.
  * Enforces rate limiting, MIME type validation, and generates unpredictable object paths.
  * POST /api/edu-day/prepare-upload
@@ -123,7 +148,7 @@ eduDayRouter.post('/prepare-upload', async (req: Request, res: Response): Promis
         errMsg.includes('denied')
       ) {
         res.status(503).json({
-          error: "Storage bucket 'edu-day-registration-files' has not yet been created or configured in Supabase. Please apply the migration (supabase/migrations/20261016_edu_day_registrations.sql) in your Supabase SQL Editor."
+          error: `Storage bucket 'edu-day-registration-files' has not yet been created or configured in Supabase: ${error.message} (status: ${statusCode}). Please apply the migration (supabase/migrations/20261016_edu_day_registrations.sql) in your Supabase SQL Editor.`
         });
         return;
       }
