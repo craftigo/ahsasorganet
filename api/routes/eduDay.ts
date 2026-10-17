@@ -60,6 +60,7 @@ eduDayRouter.get('/status', async (_req: Request, res: Response): Promise<void> 
 
     res.json({
       status: 'ok',
+      version: 'v4-hardcoded-verified',
       storageSuccess: !storageRes.error,
       storageError: storageRes.error ? {
         message: storageRes.error.message,
