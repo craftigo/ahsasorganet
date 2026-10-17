@@ -112,7 +112,7 @@ export default function HomePage() {
               </div>
 
               <p className="mt-4 text-base sm:text-lg text-gray-300 leading-relaxed max-w-xl">
-                In celebration of our prestigious college anniversary, <strong className="text-white">IRTHIQA Quranic Academy</strong> in proud association with <strong className="text-white">AHSAS</strong> presents an intensive, structured workshop dedicated to the mastery of the celebrated Tajweed text, <em>Al-Muqaddimah Al-Jazariyyah</em>.
+                In celebration of our prestigious college anniversary, <strong className="text-white">Al Bayan Qur’an Academy</strong> (A chapter of IRThIQA’ · Alumni of Darussalam Tharqiya Edu Village) in proud association with <strong className="text-white">AHSAS</strong> presents an intensive, structured workshop dedicated to the mastery of the celebrated Tajweed text, <em>Al-Muqaddimah Al-Jazariyyah</em>.
               </p>
 
               {/* Event Metadata Grid */}
@@ -147,9 +147,9 @@ export default function HomePage() {
                     <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">Venue & Host</span>
                     <p className="text-sm font-semibold text-white">
                       Darussalam Tharqiya Edu Village
-                      <span className="text-gray-400 text-xs block sm:inline sm:ml-2 sm:before:content-['•_']">
-                        Organized by IRTHIQA Quranic Academy & AHSAS
-                      </span>
+                    </p>
+                    <p className="text-gray-400 text-xs mt-1">
+                      Organized by <strong>Al Bayan Qur’an Academy</strong> (A chapter of IRThIQA’ · Alumni of Darussalam Tharqiya Edu Village) &amp; AHSAS
                     </p>
                   </div>
                 </div>

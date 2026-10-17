@@ -44,7 +44,7 @@ export default function EduDayPage(): JSX.Element {
               </div>
 
               <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
-                As part of our prestigious college anniversary celebration, <strong>EDU DAY</strong>, <strong>IRTHIQA Quranic Academy</strong> in joint partnership with <strong>AHSAS</strong> is hosting an intensive, one-day academic and spiritual workshop dedicated to the study of <em>Al-Muqaddimah Al-Jazariyyah</em>.
+                As part of our prestigious college anniversary celebration, <strong>EDU DAY</strong>, <strong>Al Bayan Qur’an Academy</strong> (A chapter of IRThIQA’ · Alumni of Darussalam Tharqiya Edu Village) in joint partnership with <strong>AHSAS</strong> is hosting an intensive, one-day academic and spiritual workshop dedicated to the study of <em>Al-Muqaddimah Al-Jazariyyah</em>.
               </p>
 
               {/* Quick Info Grid */}
@@ -77,9 +77,10 @@ export default function EduDayPage(): JSX.Element {
                     <p className="font-extrabold text-white text-base">
                       Darussalam Tharqiya Edu Village
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Organized collaboratively by IRTHIQA Quranic Academy & AHSAS
-                    </p>
+                    <div className="text-xs text-gray-400 mt-1 space-y-0.5">
+                      <p>Organized collaboratively by <strong>Al Bayan Qur’an Academy &amp; AHSAS</strong></p>
+                      <p className="text-[11px] text-amber-300/80">A chapter of IRThIQA’ • Alumni of Darussalam Tharqiya Edu Village</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -144,9 +145,15 @@ export default function EduDayPage(): JSX.Element {
 
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-white border border-gray-200 shadow-xs">
-                  <h4 className="font-extrabold text-navy text-sm">IRTHIQA Quranic Academy</h4>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Premier institution committed to advanced Quranic studies, Tajweed preservation, and classical recitation traditions.
+                  <h4 className="font-extrabold text-navy text-sm">Al Bayan Qur’an Academy</h4>
+                  <p className="text-xs font-semibold text-amber-700 mt-0.5">
+                    A chapter of IRThIQA’
+                  </p>
+                  <p className="text-xs font-medium text-gray-600">
+                    Alumni of Darussalam Tharqiya Edu Village
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Committed to advanced Quranic studies, Tajweed preservation, and classical recitation traditions.
                   </p>
                 </div>
 

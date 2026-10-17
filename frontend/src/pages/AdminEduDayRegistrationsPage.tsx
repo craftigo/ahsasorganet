@@ -1173,7 +1173,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
                     29 October 2026 · 9:00 AM – 5:00 PM · Darussalam Tharqiya Edu Village
                   </div>
                   <div className="text-gray-500 text-[11px] mt-0.5">
-                    Organized by: IRTHIQA Quranic Academy &amp; AHSAS
+                    Organized by: Al Bayan Qur’an Academy (A chapter of IRThIQA’ · Alumni of Darussalam Tharqiya Edu Village) &amp; AHSAS
                   </div>
                 </div>
                 <div className="sm:text-right font-bold text-amber-900">

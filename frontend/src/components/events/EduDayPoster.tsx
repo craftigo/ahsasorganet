@@ -45,13 +45,19 @@ export const EduDayPoster: React.FC<EduDayPosterProps> = ({
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-maroon/20 rounded-full blur-3xl pointer-events-none" />
 
               <div>
-                <div className="flex items-center justify-between border-b border-white/15 pb-3 mb-4">
-                  <span className="text-[10px] sm:text-xs font-black tracking-widest uppercase text-amber-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" /> IRTHIQA & AHSAS
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-300 border border-white/10">
-                    Official College Anniversary
-                  </span>
+                <div className="border-b border-white/15 pb-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] sm:text-xs font-black tracking-wider uppercase text-amber-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" /> Al Bayan Qur’an Academy &amp; AHSAS
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-300 border border-white/10">
+                      College Anniversary
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-gray-300 mt-1 space-y-0.5 text-left">
+                    <p className="font-semibold text-amber-200/90">A chapter of IRThIQA’</p>
+                    <p className="text-gray-400">Alumni of Darussalam Tharqiya Edu Village</p>
+                  </div>
                 </div>
 
                 <div className="text-center my-4">

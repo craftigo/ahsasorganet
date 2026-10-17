@@ -460,9 +460,13 @@ export default function EduDayRegisterPage(): JSX.Element {
                 <MapPin className="w-4 h-4 text-maroon flex-shrink-0" />
                 <span><strong>Venue:</strong> Darussalam Tharqiya Edu Village</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <Building2 className="w-4 h-4 text-maroon flex-shrink-0" />
-                <span><strong>Organizers:</strong> IRTHIQA Quranic Academy & AHSAS</span>
+              <div className="flex items-start gap-2 text-gray-600">
+                <Building2 className="w-4 h-4 text-maroon flex-shrink-0 mt-0.5" />
+                <div>
+                  <span><strong>Organizers:</strong> Al Bayan Qur’an Academy &amp; AHSAS</span>
+                  <p className="text-xs text-gray-500">A chapter of IRThIQA’</p>
+                  <p className="text-xs text-gray-500">Alumni of Darussalam Tharqiya Edu Village</p>
+                </div>
               </div>
             </div>
 
@@ -547,9 +551,11 @@ export default function EduDayRegisterPage(): JSX.Element {
                 <div className="p-2.5 rounded-xl bg-amber-400/10 border border-amber-400/30 col-span-2 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-amber-300 uppercase font-semibold block">Organizers</span>
-                    <p className="font-bold text-white text-xs">IRTHIQA Quranic Academy & AHSAS</p>
+                    <p className="font-bold text-white text-xs">Al Bayan Qur’an Academy &amp; AHSAS</p>
+                    <p className="text-[10px] text-amber-200/80">A chapter of IRThIQA’</p>
+                    <p className="text-[10px] text-gray-400">Alumni of Darussalam Tharqiya Edu Village</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex-shrink-0 pl-2">
                     <span className="text-[10px] text-amber-300 uppercase font-semibold block">Reg Fee</span>
                     <span className="text-base font-black text-amber-300">₹313</span>
                   </div>
