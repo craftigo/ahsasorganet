@@ -263,8 +263,8 @@ export default function EduDayRegisterPage(): JSX.Element {
       newErrors.whatsappNumber = 'Please enter a valid WhatsApp number (at least 7 digits).';
     }
 
-    if (!form.tajweedKithabs.trim() || form.tajweedKithabs.trim().length < 2) {
-      newErrors.tajweedKithabs = 'Please mention the Tajweed Kithabs you have studied.';
+    if (form.tajweedKithabs.trim().length > 1000) {
+      newErrors.tajweedKithabs = 'Tajweed Kithabs description must not exceed 1000 characters.';
     }
 
     if (!paymentFile) {
@@ -438,6 +438,34 @@ export default function EduDayRegisterPage(): JSX.Element {
               <p className="text-[11px] text-amber-800 font-medium mt-1">
                 Please take a screenshot or note this reference number for check-in verification on event day.
               </p>
+            </div>
+
+            {/* Official WhatsApp Group Join Card */}
+            <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-50/80 to-teal-500/10 border-2 border-emerald-500/40 rounded-2xl p-6 text-center shadow-xs">
+              <div className="w-12 h-12 bg-[#25D366] text-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-md">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-gray-900">
+                വർക്ക്‌ഷോപ്പ് വാട്സാപ്പ് ഗ്രൂപ്പിൽ ജോയിൻ ചെയ്യുക
+              </h3>
+              <p className="text-xs font-bold text-emerald-800 mt-0.5">
+                Join the Official Workshop WhatsApp Group
+              </p>
+              <p className="text-xs text-gray-600 mt-2 max-w-md mx-auto leading-relaxed">
+                വർക്ക്‌ഷോപ്പുമായി ബന്ധപ്പെട്ട പ്രധാന അറിയിപ്പുകൾ, പഠന കുറിപ്പുകൾ, ഷെഡ്യൂൾ വിവരങ്ങൾ എന്നിവ ലഭിക്കുന്നതിനായി താഴെ നൽകിയിരിക്കുന്ന ബട്ടൺ ക്ലിക്ക് ചെയ്ത് വാട്സാപ്പ് ഗ്രൂപ്പിൽ ജോയിൻ ചെയ്യുക.
+              </p>
+              <div className="mt-4">
+                <a
+                  href="https://chat.whatsapp.com/JssfLwYkPNuC2Fx01cw326?s=cl&p=a&mlu=4&ilr=4"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-white text-sm sm:text-base bg-[#25D366] hover:bg-[#20ba59] active:scale-98 transition shadow-md hover:shadow-lg w-full sm:w-auto"
+                >
+                  <MessageSquare className="w-5 h-5 fill-current" />
+                  <span>JOIN WHATSAPP GROUP</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
             </div>
 
             {/* Event Summary */}
@@ -745,19 +773,18 @@ export default function EduDayRegisterPage(): JSX.Element {
               </div>
             </div>
 
-            {/* Field 6: Tajweed Kithabs Studied */}
+            {/* Field 6: Tajweed Kithabs Studied (Optional) */}
             <div>
               <label htmlFor="tajweedKithabs" className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                Which Tajweed Kithabs Have You Studied? <span className="text-red-500">*</span>
+                Which Tajweed Kithabs Have You Studied? <span className="text-gray-400 font-normal normal-case text-[11px]">(Optional)</span>
               </label>
               <div className="relative">
                 <textarea
                   id="tajweedKithabs"
                   rows={3}
-                  required
                   value={form.tajweedKithabs}
                   onChange={(e) => handleInputChange('tajweedKithabs', e.target.value)}
-                  placeholder="Mention the Tajweed Kithabs you have studied..."
+                  placeholder="Optional: Mention any Tajweed Kithabs you have studied (or leave blank if none)..."
                   className={`w-full p-3.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 resize-y ${
                     errors.tajweedKithabs
                       ? 'border-red-400 bg-red-50/30 focus:ring-red-400'
@@ -766,7 +793,7 @@ export default function EduDayRegisterPage(): JSX.Element {
                 />
               </div>
               <p className="text-[11px] text-gray-400 mt-1">
-                You can list multiple titles (e.g. Al-Jazariyyah, Tuhfat al-Atfal, Hidayat al-Mustafid, etc.) or provide brief context.
+                Optional. You can list titles you have studied (e.g. Al-Jazariyyah, Tuhfat al-Atfal, etc.) or leave this blank.
               </p>
               {errors.tajweedKithabs && <p className="text-xs text-red-600 mt-1 font-medium">{errors.tajweedKithabs}</p>}
             </div>

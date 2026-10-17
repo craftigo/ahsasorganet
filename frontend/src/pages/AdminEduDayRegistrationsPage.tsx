@@ -1253,7 +1253,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
                     <span>7. Tajweed Kithabs Studied</span>
                   </span>
                   <div className="text-gray-800 whitespace-pre-wrap bg-white p-3 rounded-lg border border-gray-200 text-xs font-medium leading-relaxed">
-                    {selectedRegistration.tajweed_kithabs}
+                    {selectedRegistration.tajweed_kithabs || <span className="text-gray-400 italic">None specified (Optional)</span>}
                   </div>
                 </div>
 

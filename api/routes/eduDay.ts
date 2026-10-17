@@ -229,9 +229,8 @@ eduDayRouter.post('/register', async (req: Request, res: Response): Promise<void
     errors.push('A valid WhatsApp Number is required (minimum 7 digits).');
   }
 
-  if (!tajweed_kithabs || typeof tajweed_kithabs !== 'string' || tajweed_kithabs.trim().length < 2) {
-    errors.push('Please specify which Tajweed Kithabs you have studied.');
-  } else if (tajweed_kithabs.trim().length > 1000) {
+  const cleanTajweedKithabs = (typeof tajweed_kithabs === 'string') ? tajweed_kithabs.trim() : '';
+  if (cleanTajweedKithabs.length > 1000) {
     errors.push('Tajweed Kithabs description must not exceed 1000 characters.');
   }
 
@@ -276,7 +275,7 @@ eduDayRouter.post('/register', async (req: Request, res: Response): Promise<void
     institute_workplace: institute_workplace.trim(),
     phone_number: phone_number.trim(),
     whatsapp_number: whatsapp_number.trim(),
-    tajweed_kithabs: tajweed_kithabs.trim(),
+    tajweed_kithabs: cleanTajweedKithabs,
     payment_screenshot_url: cleanPaymentPath,
     applicant_photo_url: cleanPhotoPath,
     status: 'submitted' as const,
