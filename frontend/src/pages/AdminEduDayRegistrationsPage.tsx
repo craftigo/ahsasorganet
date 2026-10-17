@@ -354,7 +354,10 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
       const token = await getAuthToken();
       if (!token) throw new Error('Authentication token expired.');
 
-      const response = await fetch(`/api/edu-day/admin/registrations/${deletingRegistration.id}`, {
+      const targetId = deletingRegistration.id;
+      const targetRef = deletingRegistration.reference_no;
+
+      const response = await fetch(`/api/edu-day/admin/registrations/${targetId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`
@@ -363,16 +366,35 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete registration.');
+        // Fallback: If backend delete failed, try direct delete via Supabase client with active admin session
+        console.warn('Backend delete returned non-ok, attempting direct client delete:', result.error);
+        const { error: directErr } = await supabase
+          .from('edu_day_registrations')
+          .delete()
+          .eq('id', targetId);
+
+        if (directErr) {
+          throw new Error(result.error || directErr.message || 'Failed to delete registration.');
+        }
+      } else {
+        // Even if backend returned ok, run direct Supabase client delete as well to guarantee DB deletion
+        await supabase
+          .from('edu_day_registrations')
+          .delete()
+          .eq('id', targetId);
       }
 
-      showToast(result.message || `Registration ${deletingRegistration.reference_no} permanently deleted.`, 'success');
+      // Optimistically remove from state immediately
+      setRegistrations((prev) => prev.filter((r) => r.id !== targetId));
+      setTotalRecords((prev) => Math.max(0, prev - 1));
+
+      showToast(result.message || `Registration ${targetRef} permanently deleted.`, 'success');
 
       setDeleteModalOpen(false);
       setDeletingRegistration(null);
       setDeleteConfirmText('');
 
-      if (detailsModalOpen && selectedRegistration?.id === deletingRegistration.id) {
+      if (detailsModalOpen && selectedRegistration?.id === targetId) {
         setDetailsModalOpen(false);
         setSelectedRegistration(null);
       }

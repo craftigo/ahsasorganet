@@ -735,8 +735,11 @@ eduDayRouter.patch(
     }
 
     try {
+      const client = req.supabaseUserClient || supabaseServer;
       const nowIso = new Date().toISOString();
-      const { data, error } = await supabaseServer
+      let updatedData = null;
+
+      const { data: userUpdated, error: userUpdateErr } = await client
         .from('edu_day_registrations')
         .update({
           status,
@@ -746,17 +749,32 @@ eduDayRouter.patch(
         .select()
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          res.status(404).json({ error: 'Registration not found.' });
-          return;
+      if (!userUpdateErr && userUpdated) {
+        updatedData = userUpdated;
+      } else {
+        const { data: srvUpdated, error: srvUpdateErr } = await supabaseServer
+          .from('edu_day_registrations')
+          .update({
+            status,
+            updated_at: nowIso
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (srvUpdateErr) {
+          if (srvUpdateErr.code === 'PGRST116') {
+            res.status(404).json({ error: 'Registration not found.' });
+            return;
+          }
+          throw srvUpdateErr;
         }
-        throw error;
+        updatedData = srvUpdated;
       }
 
       res.json({
         success: true,
-        registration: data
+        registration: updatedData
       });
     } catch (err: any) {
       console.error('[API] Admin status update error:', err);
@@ -781,42 +799,71 @@ eduDayRouter.delete(
     }
 
     try {
+      const client = req.supabaseUserClient || supabaseServer;
+
       // 1. Fetch record first to identify associated private files
-      const { data: reg, error: fetchErr } = await supabaseServer
+      const { data: reg } = await client
         .from('edu_day_registrations')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
-      if (fetchErr || !reg) {
+      const targetReg = reg || (await supabaseServer.from('edu_day_registrations').select('*').eq('id', id).maybeSingle()).data;
+
+      if (!targetReg) {
         res.status(404).json({ error: 'Registration not found or already deleted.' });
         return;
       }
 
       // 2. Identify associated files
       const filesToDelete: string[] = [];
-      if (reg.payment_screenshot_url) {
-        const cleanPayment = reg.payment_screenshot_url.replace(/^edu-day-registration-files\//, '').trim();
+      if (targetReg.payment_screenshot_url) {
+        const cleanPayment = targetReg.payment_screenshot_url.replace(/^edu-day-registration-files\//, '').trim();
         if (cleanPayment.startsWith('edu-day/payment-proofs/')) {
           filesToDelete.push(cleanPayment);
         }
       }
 
-      if (reg.applicant_photo_url) {
-        const cleanPhoto = reg.applicant_photo_url.replace(/^edu-day-registration-files\//, '').trim();
+      if (targetReg.applicant_photo_url) {
+        const cleanPhoto = targetReg.applicant_photo_url.replace(/^edu-day-registration-files\//, '').trim();
         if (cleanPhoto.startsWith('edu-day/applicant-photos/')) {
           filesToDelete.push(cleanPhoto);
         }
       }
 
-      // 3. Delete database record
-      const { error: dbDeleteErr } = await supabaseServer
-        .from('edu_day_registrations')
-        .delete()
-        .eq('id', id);
+      // 3. Delete database record using user client first (to satisfy RLS is_edu_day_admin)
+      let dbDeleteSuccess = false;
+      let lastDeleteError: any = null;
 
-      if (dbDeleteErr) {
-        throw dbDeleteErr;
+      const { data: userDeleted, error: userDelErr } = await client
+        .from('edu_day_registrations')
+        .delete({ count: 'exact' })
+        .eq('id', id)
+        .select();
+
+      if (!userDelErr && userDeleted && userDeleted.length > 0) {
+        dbDeleteSuccess = true;
+      } else {
+        lastDeleteError = userDelErr;
+        // Fallback attempt with supabaseServer
+        const { data: srvDeleted, error: srvDelErr } = await supabaseServer
+          .from('edu_day_registrations')
+          .delete({ count: 'exact' })
+          .eq('id', id)
+          .select();
+
+        if (!srvDelErr && srvDeleted && srvDeleted.length > 0) {
+          dbDeleteSuccess = true;
+        } else {
+          lastDeleteError = srvDelErr || lastDeleteError;
+        }
+      }
+
+      if (!dbDeleteSuccess) {
+        throw new Error(
+          lastDeleteError?.message ||
+          'Database RLS policy prevented deletion. Please verify that your account has administrator privileges.'
+        );
       }
 
       // 4. Safely clean up associated files in storage
@@ -836,7 +883,7 @@ eduDayRouter.delete(
 
       res.json({
         success: true,
-        message: `Registration ${reg.reference_no} (${reg.full_name}) and associated private files permanently deleted.`
+        message: `Registration ${targetReg.reference_no} (${targetReg.full_name}) and associated private files permanently deleted.`
       });
     } catch (err: any) {
       console.error('[API] Admin delete registration error:', err);
