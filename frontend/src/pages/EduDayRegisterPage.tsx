@@ -446,13 +446,10 @@ export default function EduDayRegisterPage(): JSX.Element {
                 <MessageSquare className="w-6 h-6" />
               </div>
               <h3 className="text-base sm:text-lg font-black text-gray-900">
-                വർക്ക്‌ഷോപ്പ് വാട്സാപ്പ് ഗ്രൂപ്പിൽ ജോയിൻ ചെയ്യുക
+                Join Official WhatsApp Group
               </h3>
-              <p className="text-xs font-bold text-emerald-800 mt-0.5">
-                Join the Official Workshop WhatsApp Group
-              </p>
-              <p className="text-xs text-gray-600 mt-2 max-w-md mx-auto leading-relaxed">
-                വർക്ക്‌ഷോപ്പുമായി ബന്ധപ്പെട്ട പ്രധാന അറിയിപ്പുകൾ, പഠന കുറിപ്പുകൾ, ഷെഡ്യൂൾ വിവരങ്ങൾ എന്നിവ ലഭിക്കുന്നതിനായി താഴെ നൽകിയിരിക്കുന്ന ബട്ടൺ ക്ലിക്ക് ചെയ്ത് വാട്സാപ്പ് ഗ്രൂപ്പിൽ ജോയിൻ ചെയ്യുക.
+              <p className="text-xs text-gray-600 mt-1.5 max-w-md mx-auto leading-relaxed">
+                Please join the official WhatsApp group for important workshop updates and announcements.
               </p>
               <div className="mt-4">
                 <a
