@@ -176,7 +176,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
         <table><thead><tr><th>#</th><th>Reference No.</th><th>Applicant</th><th>Phone</th><th>WhatsApp</th><th>Place</th><th>Institute / Workplace</th><th>Tajweed Kithabs</th><th>Fee</th><th>Status</th><th>Registered</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="11">No registrations found.</td></tr>'}</tbody></table>`;
       Object.assign(pdfContent.style, {
-        position: 'fixed', left: '-12000px', top: '0', width: '1400px', padding: '24px',
+        position: 'relative', left: 'auto', top: 'auto', width: '100%', padding: '24px',
         background: '#ffffff', color: '#172033', font: '14px Arial, sans-serif', zIndex: '-1'
       });
       const style = document.createElement('style');
