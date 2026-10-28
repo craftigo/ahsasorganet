@@ -58,6 +58,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
   // Registrations state
   const [registrations, setRegistrations] = useState<EduDayRegistration[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [exportingPdf, setExportingPdf] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [configurationPending, setConfigurationPending] = useState<boolean>(false);
   const [configurationMessage, setConfigurationMessage] = useState<string>('');
@@ -131,6 +132,74 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
   const getAuthToken = async (): Promise<string | null> => {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token || null;
+  };
+
+  const downloadRegistrationsPdf = async () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('Allow pop-ups for this site to download the registrations PDF.', 'error');
+      return;
+    }
+
+    setExportingPdf(true);
+    printWindow.document.write('<title>Preparing EDU DAY registrations PDF…</title><p style="font:16px Arial;padding:24px">Preparing the complete registration list…</p>');
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required. Please log in as an administrator.');
+
+      const allRegistrations: EduDayRegistration[] = [];
+      let exportPage = 1;
+      let pageCount = 1;
+      do {
+        const params = new URLSearchParams({
+          page: String(exportPage), limit: '100', status: 'all', search: '', sortBy, sortOrder
+        });
+        const response = await fetch(`/api/edu-day/admin/registrations?${params}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data: EduDayRegistrationsResponse = await response.json();
+        if (!response.ok) throw new Error((data as any).error || 'Could not load registrations for the PDF.');
+        if (data.configurationPending) throw new Error('The registration database is not configured yet.');
+        allRegistrations.push(...(data.registrations || []));
+        pageCount = data.pagination?.totalPages || 1;
+        exportPage += 1;
+      } while (exportPage <= pageCount);
+
+      const escapeHtml = (value: unknown) => String(value ?? '—').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[char]!));
+      const rows = allRegistrations.map((reg, index) => `
+        <tr>
+          <td>${index + 1}</td><td>${escapeHtml(reg.reference_no)}</td><td>${escapeHtml(reg.full_name)}</td>
+          <td>${escapeHtml(reg.phone_number)}</td><td>${escapeHtml(reg.whatsapp_number)}</td>
+          <td>${escapeHtml(reg.place)}</td><td>${escapeHtml(reg.institute_workplace)}</td>
+          <td>${escapeHtml(reg.tajweed_kithabs || '—')}</td><td>₹313</td>
+          <td>${escapeHtml(STATUS_LABELS[reg.status] || reg.status)}</td><td>${escapeHtml(formatDate(reg.created_at))}</td>
+        </tr>`).join('');
+
+      printWindow.document.open();
+      printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>EDU DAY Registrations</title>
+        <style>
+          @page { size: A4 landscape; margin: 12mm; }
+          body { font: 10px Arial, sans-serif; color: #172033; }
+          h1 { font-size: 20px; margin: 0 0 5px; } .meta { color: #526078; margin-bottom: 14px; }
+          table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #cbd2dc; padding: 5px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+          th { background: #edf1f6; font-size: 9px; } tr { break-inside: avoid; }
+          @media print { thead { display: table-header-group; } }
+        </style></head><body>
+        <h1>EDU DAY — Complete Registration List</h1>
+        <div class="meta">Jazriyya One Day Workshop · 29 October 2026 · Total registrations: ${allRegistrations.length} · Generated: ${escapeHtml(new Date().toLocaleString())}</div>
+        <table><thead><tr><th>#</th><th>Reference No.</th><th>Applicant</th><th>Phone</th><th>WhatsApp</th><th>Place</th><th>Institute / Workplace</th><th>Tajweed Kithabs</th><th>Fee</th><th>Status</th><th>Registered</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="11">No registrations found.</td></tr>'}</tbody></table>
+        <script>window.onload = () => setTimeout(() => window.print(), 250);</script></body></html>`);
+      printWindow.document.close();
+      showToast(`Loaded all ${allRegistrations.length} registrations. Choose “Save as PDF” in the print window.`);
+    } catch (err: any) {
+      printWindow.close();
+      showToast(err.message || 'Could not create the registrations PDF.', 'error');
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   // Fetch registrations
@@ -485,6 +554,15 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={downloadRegistrationsPdf}
+            disabled={exportingPdf || configurationPending}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
+            title="Export every registration with applicant details as a PDF"
+          >
+            {exportingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            <span>{exportingPdf ? 'Preparing PDF…' : 'Download Full List PDF'}</span>
+          </button>
           <Link
             to="/edu-day/register"
             target="_blank"
