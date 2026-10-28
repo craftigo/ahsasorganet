@@ -135,14 +135,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
   };
 
   const downloadRegistrationsPdf = async () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showToast('Allow pop-ups for this site to download the registrations PDF.', 'error');
-      return;
-    }
-
     setExportingPdf(true);
-    printWindow.document.write('<title>Preparing EDU DAY registrations PDF…</title><p style="font:16px Arial;padding:24px">Preparing the complete registration list…</p>');
     try {
       const token = await getAuthToken();
       if (!token) throw new Error('Authentication required. Please log in as an administrator.');
@@ -177,25 +170,43 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
           <td>${escapeHtml(STATUS_LABELS[reg.status] || reg.status)}</td><td>${escapeHtml(formatDate(reg.created_at))}</td>
         </tr>`).join('');
 
-      printWindow.document.open();
-      printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>EDU DAY Registrations</title>
-        <style>
-          @page { size: A4 landscape; margin: 12mm; }
-          body { font: 10px Arial, sans-serif; color: #172033; }
-          h1 { font-size: 20px; margin: 0 0 5px; } .meta { color: #526078; margin-bottom: 14px; }
-          table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #cbd2dc; padding: 5px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-          th { background: #edf1f6; font-size: 9px; } tr { break-inside: avoid; }
-          @media print { thead { display: table-header-group; } }
-        </style></head><body>
-        <h1>EDU DAY — Complete Registration List</h1>
+      const pdfContent = document.createElement('div');
+      pdfContent.innerHTML = `<h1>EDU DAY — Complete Registration List</h1>
         <div class="meta">Jazriyya One Day Workshop · 29 October 2026 · Total registrations: ${allRegistrations.length} · Generated: ${escapeHtml(new Date().toLocaleString())}</div>
         <table><thead><tr><th>#</th><th>Reference No.</th><th>Applicant</th><th>Phone</th><th>WhatsApp</th><th>Place</th><th>Institute / Workplace</th><th>Tajweed Kithabs</th><th>Fee</th><th>Status</th><th>Registered</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="11">No registrations found.</td></tr>'}</tbody></table>
-        <script>window.onload = () => setTimeout(() => window.print(), 250);</script></body></html>`);
-      printWindow.document.close();
-      showToast(`Loaded all ${allRegistrations.length} registrations. Choose “Save as PDF” in the print window.`);
+        <tbody>${rows || '<tr><td colspan="11">No registrations found.</td></tr>'}</tbody></table>`;
+      Object.assign(pdfContent.style, {
+        position: 'fixed', left: '-12000px', top: '0', width: '1400px', padding: '24px',
+        background: '#ffffff', color: '#172033', font: '14px Arial, sans-serif', zIndex: '-1'
+      });
+      const style = document.createElement('style');
+      style.textContent = `
+        .edu-day-pdf-title { font-size: 24px; margin: 0 0 6px; }
+        .edu-day-pdf-meta { color: #526078; margin-bottom: 18px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #cbd2dc; padding: 7px 5px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+        th { background: #edf1f6; font-size: 12px; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
+      `;
+      pdfContent.querySelector('h1')?.classList.add('edu-day-pdf-title');
+      pdfContent.querySelector('.meta')?.classList.add('edu-day-pdf-meta');
+      pdfContent.prepend(style);
+      document.body.appendChild(pdfContent);
+      try {
+        const { default: html2pdf } = await import('html2pdf.js');
+        await html2pdf().set({
+          filename: `EDU-DAY-Registrations-${new Date().toISOString().slice(0, 10)}.pdf`,
+          margin: 8,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
+        } as any).from(pdfContent).save();
+      } finally {
+        pdfContent.remove();
+      }
+      showToast(`Downloaded the PDF with all ${allRegistrations.length} registrations.`);
     } catch (err: any) {
-      printWindow.close();
       showToast(err.message || 'Could not create the registrations PDF.', 'error');
     } finally {
       setExportingPdf(false);
@@ -561,7 +572,7 @@ export const AdminEduDayRegistrationsPage: React.FC = () => {
             title="Export every registration with applicant details as a PDF"
           >
             {exportingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            <span>{exportingPdf ? 'Preparing PDF…' : 'Download Full List PDF'}</span>
+            <span>{exportingPdf ? 'Downloading PDF…' : 'Download PDF'}</span>
           </button>
           <Link
             to="/edu-day/register"
