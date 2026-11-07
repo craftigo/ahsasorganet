@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { supabase } from '../lib/supabase';
-import { AdminNavigation } from '../components/layout/AdminNavigation';
 import { Unit, Report, UnitMessage, AdminUser } from '../../../shared/types';
 import {
   ShieldAlert,
@@ -17,7 +16,9 @@ import {
   Settings,
   DollarSign,
   Building,
-  ExternalLink
+  ExternalLink,
+  Trophy,
+  ArrowRight
 } from 'lucide-react';
 
 const MASTER_ADMINS = ['ahsaslab@gmail.com', 'mmmed8833@gmail.com'];
@@ -817,6 +818,13 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <Link
+            to="/admin/quiz-submissions"
+            className="px-4 py-2 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition shadow-md flex items-center gap-1.5"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-300" />
+            <span>Edu Familia Quiz</span>
+          </Link>
+          <Link
             to="/leaderboard"
             className="px-4 py-2 bg-maroon hover:bg-red-900 text-white text-xs font-bold rounded-xl transition shadow-md"
           >
@@ -829,8 +837,32 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Admin Navigation Tabs */}
-      <AdminNavigation />
+      {/* Quiz Submissions Shortcut Card */}
+      <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-purple-500/30 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-600/40 border border-purple-400/40 flex items-center justify-center text-amber-300 shrink-0">
+            <Trophy className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black flex items-center gap-2">
+              <span>Edu Familia Online Quiz Management</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-gray-950 uppercase">
+                Al Suffa (C3)
+              </span>
+            </h3>
+            <p className="text-xs text-purple-200 mt-0.5">
+              Review parent quiz submissions, inspect individual question answers, monitor rankings, scores, and export to Excel/CSV.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/admin/quiz-submissions"
+          className="px-4 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-gray-950 transition shadow-md flex items-center gap-1.5 shrink-0"
+        >
+          <span>Manage Submissions</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Right / Main 2 Columns: Pending Reports, Chat, Notifications */}
