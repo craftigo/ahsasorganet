@@ -16,13 +16,12 @@ import HelpPage from './pages/HelpPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import EduDayPage from './pages/EduDayPage';
-import EduDayRegisterPage from './pages/EduDayRegisterPage';
+import QuizPage from './pages/QuizPage';
 
 // Protected Pages
 import { UnitDashboardPage } from './pages/UnitDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { AdminEduDayRegistrationsPage } from './pages/AdminEduDayRegistrationsPage';
+import { AdminQuizSubmissionsPage } from './pages/AdminQuizSubmissionsPage';
 
 export default function App(): JSX.Element {
   return (
@@ -33,8 +32,7 @@ export default function App(): JSX.Element {
             <Route path="/" element={<MainLayout />}>
               {/* Public Routes */}
               <Route index element={<HomePage />} />
-              <Route path="edu-day" element={<EduDayPage />} />
-              <Route path="edu-day/register" element={<EduDayRegisterPage />} />
+              <Route path="quiz" element={<QuizPage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="fund-collection" element={<FundCollectionPage />} />
               <Route path="committees" element={<CommitteesPage />} />
@@ -56,7 +54,7 @@ export default function App(): JSX.Element {
                 }
               />
 
-              {/* Protected Admin Routes */}
+              {/* Protected Admin Route */}
               <Route
                 path="admin"
                 element={
@@ -66,10 +64,10 @@ export default function App(): JSX.Element {
                 }
               />
               <Route
-                path="admin/edu-day-registrations"
+                path="admin/quiz-submissions"
                 element={
                   <ProtectedRoute requireAdmin>
-                    <AdminEduDayRegistrationsPage />
+                    <AdminQuizSubmissionsPage />
                   </ProtectedRoute>
                 }
               />

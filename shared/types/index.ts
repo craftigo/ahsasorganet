@@ -86,61 +86,38 @@ export interface AdminUser {
   created_at: string;
 }
 
-export type EduDayRegistrationStatus = 'submitted' | 'verified' | 'rejected' | 'attended';
+export interface QuizQuestion {
+  id: number;
+  question: string;
+  options: [string, string, string, string];
+  correctAnswerIndex: number;
+  category: string;
+  hint?: string;
+}
 
-export interface EduDayRegistration {
+export interface QuizSubmission {
   id: string;
-  reference_no: string;
-  full_name: string;
-  place: string;
-  institute_workplace: string;
+  participant_name: string;
+  student_name: string;
+  student_class: string;
   phone_number: string;
-  whatsapp_number: string;
-  tajweed_kithabs: string;
-  payment_screenshot_url: string;
-  applicant_photo_url?: string | null;
-  status: EduDayRegistrationStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface EduDayRegistrationInput {
-  full_name: string;
   place: string;
-  institute_workplace: string;
+  score: number;
+  total_questions: number;
+  time_taken_seconds: number;
+  answers: Record<string, number>;
+  submitted_at: string;
+  created_at?: string;
+}
+
+export interface QuizSubmissionInput {
+  participant_name: string;
+  student_name: string;
+  student_class: string;
   phone_number: string;
-  whatsapp_number: string;
-  tajweed_kithabs: string;
-  payment_screenshot_url: string;
-  applicant_photo_url?: string | null;
+  place: string;
+  answers: Record<string, number>;
+  time_taken_seconds: number;
 }
 
-export interface EduDayRegistrationSummary {
-  total: number;
-  submitted: number;
-  verified: number;
-  rejected: number;
-  attended: number;
-}
 
-export interface EduDayRegistrationsPagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface EduDayRegistrationsResponse {
-  registrations: EduDayRegistration[];
-  pagination: EduDayRegistrationsPagination;
-  summary: EduDayRegistrationSummary;
-  configurationPending?: boolean;
-  configurationMessage?: string;
-}
-
-export interface EduDaySignedUrlResponse {
-  success: boolean;
-  signedUrl: string;
-  expiresIn: number;
-  fileName: string;
-}

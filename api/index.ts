@@ -1,12 +1,16 @@
 import express, { Express, Request, Response } from 'express';
 import { healthRouter } from './routes/health';
-import { eduDayRouter } from './routes/eduDay';
+import { quizRouter } from './routes/quiz';
 import { errorHandler } from './middleware/errorMiddleware';
 
 const app: Express = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Basic CORS headers
@@ -23,7 +27,7 @@ app.use((req: Request, res: Response, next) => {
 
 // Mount Routes
 app.use('/api/health', healthRouter);
-app.use('/api/edu-day', eduDayRouter);
+app.use('/api/quiz', quizRouter);
 
 // Centralized error handler
 app.use(errorHandler);

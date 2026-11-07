@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, ArrowRight, Coins, Sparkles, Loader2, Calendar, Clock, MapPin, Ticket, CheckCircle2 } from 'lucide-react';
+import { Trophy, ArrowRight, Coins, Sparkles, Loader2, HelpCircle, CheckCircle2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../contexts/SettingsContext';
 import { Unit } from '@shared/types';
-import { EduDayPoster } from '../components/events/EduDayPoster';
+import { isQuizClosed, isQuizUpcoming } from '../data/quizQuestions';
 
 export default function HomePage() {
   const { settings } = useSettings();
@@ -83,110 +83,131 @@ export default function HomePage() {
       </div>
 
       {/* =========================================================================
-          EDU DAY — ANNIVERSARY SPECIAL SECTION (FIRST PRIMARY HOMEPAGE SECTION)
-          The premier visual focus when visitors open the homepage
+          EDU FAMILIA — ONLINE QUIZ COMPETITION SPOTLIGHT (Al Suffa C3 Special)
       ========================================================================= */}
-      <section className="relative py-16 sm:py-20 bg-gradient-to-br from-gray-950 via-[#1a1429] to-navy text-white overflow-hidden border-b border-amber-500/20">
+      <section className="relative py-12 sm:py-16 bg-gradient-to-br from-slate-950 via-[#270b3b] to-slate-950 text-white overflow-hidden border-b border-purple-500/25">
         {/* Ambient lighting effects */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-maroon/25 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             
             {/* Left Content Column */}
-            <div className="lg:col-span-7 flex flex-col items-start text-left">
-              {/* Official Label Badge */}
-              <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase bg-gradient-to-r from-amber-500/20 via-maroon/30 to-amber-500/10 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10 mb-4 animate-fade-in-down">
-                <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-                <span>EDU DAY — ANNIVERSARY SPECIAL</span>
+            <div className="lg:col-span-7 flex flex-col items-start text-left space-y-4">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black tracking-widest uppercase bg-purple-500/20 border border-purple-400/40 text-purple-300 shadow-md">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span>EDU FAMILIA • AL SUFFA (C3) SPECIAL</span>
               </div>
 
-              {/* Main Prominent Headings */}
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none">
-                EDU DAY
+              {/* Main Title */}
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+                ONLINE QUIZ COMPETITION
               </h2>
-              <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-yellow-400">
-                JAZRIYYA ONE DAY WORKSHOP
-              </div>
 
-              <p className="mt-4 text-base sm:text-lg text-gray-300 leading-relaxed max-w-xl">
-                In celebration of our prestigious college anniversary, <strong className="text-white">Al Bayan Qur’an Academy</strong> (A chapter of IRThIQA’ · Alumni of Darussalam Tharqiya Edu Village) in proud association with <strong className="text-white">AHSAS</strong> presents an intensive, structured workshop dedicated to the mastery of the celebrated Tajweed text, <em>Al-Muqaddimah Al-Jazariyyah</em>.
+              <p className="text-base sm:text-lg font-medium text-purple-200 leading-relaxed">
+                Organized by AHSAS Class Unit <strong>Al Suffa (C3)</strong> in connection with the prestigious <em>Edu Familia</em> Parents' Meet at Darussalam Tharqiya Edu Village.
               </p>
 
-              {/* Event Metadata Grid */}
-              <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-xl">
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-                  <div className="flex items-center gap-2 text-amber-400 mb-1">
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Date</span>
-                  </div>
-                  <p className="text-sm sm:text-base font-extrabold text-white">29 Oct 2026</p>
+              {/* Event Metadata Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 w-full max-w-lg pt-1">
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 block">Date</span>
+                  <span className="text-xs sm:text-sm font-extrabold text-white">Sunday, 08 Nov 2026</span>
                 </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-                  <div className="flex items-center gap-2 text-amber-400 mb-1">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Time</span>
-                  </div>
-                  <p className="text-sm sm:text-base font-extrabold text-white">9:00 AM – 5:00 PM</p>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 block">Questions</span>
+                  <span className="text-xs sm:text-sm font-extrabold text-amber-300">30 Qs (30s each)</span>
                 </div>
-
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-400/30 backdrop-blur-xs col-span-2 sm:col-span-1">
-                  <div className="flex items-center gap-2 text-amber-400 mb-1">
-                    <Ticket className="w-4 h-4" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">Registration Fee</span>
-                  </div>
-                  <p className="text-lg font-black text-amber-300">₹313</p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs col-span-2 sm:col-span-3 flex items-start gap-2.5">
-                  <MapPin className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">Venue & Host</span>
-                    <p className="text-sm font-semibold text-white">
-                      Darussalam Tharqiya Edu Village
-                    </p>
-                    <p className="text-gray-400 text-xs mt-1">
-                      Organized by <strong>Al Bayan Qur’an Academy</strong> (A chapter of IRThIQA’ · Alumni of Darussalam Tharqiya Edu Village) &amp; AHSAS
-                    </p>
-                  </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs col-span-2 sm:col-span-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 block">Organizer</span>
+                  <span className="text-xs sm:text-sm font-extrabold text-white">Al Suffa (C3) • AHSAS</span>
                 </div>
               </div>
 
-              {/* Status Alert */}
-              <div className="mt-6 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-                <span>Online Registrations are Live — Seats are limited. Complete your enrollment now.</span>
-              </div>
+              {/* Status Alert Dynamic */}
+              {isQuizClosed() ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold">
+                  <Lock className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                  <span>Registration Closed • Quiz window ended at 12:00 AM.</span>
+                </div>
+              ) : isQuizUpcoming() ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold">
+                  <Sparkles className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                  <span>Registration Opens Sunday 12:00 AM.</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                  <span>Online Quiz is Live Now! (Open until 12:00 AM tonight).</span>
+                </div>
+              )}
 
-              {/* Call-to-Action Buttons */}
-              <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                <Link
-                  to="/edu-day/register"
-                  id="edu-day-register-now-btn"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-black text-gray-950 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 transition-all duration-300 shadow-xl shadow-amber-400/20 transform hover:-translate-y-0.5"
-                >
-                  <Ticket className="w-5 h-5 text-gray-950" />
-                  <span>REGISTER NOW</span>
-                </Link>
-
-                <Link
-                  to="/edu-day"
-                  id="edu-day-view-details-btn"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-300 backdrop-blur-xs transform hover:-translate-y-0.5"
-                >
-                  <span>VIEW EVENT DETAILS</span>
-                  <ArrowRight className="w-4 h-4 text-amber-400" />
-                </Link>
+              {/* Big CTA Button */}
+              <div className="pt-2 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                {isQuizClosed() ? (
+                  <Link
+                    to="/quiz"
+                    id="participate-quiz-btn"
+                    className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl font-black text-rose-200 bg-rose-950/80 border border-rose-600/50 hover:bg-rose-900/80 transition shadow-xl text-sm sm:text-base cursor-pointer"
+                  >
+                    <Lock className="w-5 h-5 text-rose-400" />
+                    <span>REGISTRATION CLOSED</span>
+                    <ArrowRight className="w-4 h-4 text-rose-400" />
+                  </Link>
+                ) : (
+                  <Link
+                    to="/quiz"
+                    id="participate-quiz-btn"
+                    className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl font-black text-gray-950 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 transition shadow-xl shadow-amber-400/25 transform hover:-translate-y-0.5 text-sm sm:text-base cursor-pointer"
+                  >
+                    <HelpCircle className="w-5 h-5 text-gray-950" />
+                    <span>ATTEND QUIZ NOW</span>
+                    <ArrowRight className="w-4 h-4 text-gray-950" />
+                  </Link>
+                )}
               </div>
             </div>
 
-            {/* Right Visual Poster Column */}
-            <div className="lg:col-span-5 flex justify-center">
-              <div className="w-full max-w-md">
-                <EduDayPoster />
+            {/* Right Brand Logo Column — Upgraded High-Impact Card */}
+            <div className="lg:col-span-5 flex justify-center w-full">
+              <div className="relative group max-w-md w-full p-8 sm:p-10 rounded-3xl bg-gradient-to-b from-purple-950/90 via-slate-950/95 to-purple-950/90 border border-purple-400/40 shadow-[0_20px_50px_rgba(88,28,135,0.4)] backdrop-blur-xl flex flex-col items-center text-center overflow-hidden">
+                {/* Dynamic animated glow backdrop */}
+                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-400 rounded-3xl blur-2xl opacity-40 group-hover:opacity-75 transition duration-700 pointer-events-none" />
+                <div className="absolute top-0 right-0 w-36 h-36 bg-amber-400/10 rounded-full blur-xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-36 h-36 bg-purple-600/20 rounded-full blur-xl pointer-events-none" />
+
+                {/* Subtitle Badge */}
+                <div className="relative z-10 mb-4 inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[11px] font-black tracking-widest uppercase bg-purple-500/20 border border-purple-400/40 text-purple-200">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>AL SUFFA (C3) PRESENTS</span>
+                </div>
+
+                {/* Main Edu Familia Typography Logo (Cropped & Scaled to Full Impact) */}
+                <div className="relative z-10 w-full flex items-center justify-center py-4 my-2">
+                  <img
+                    src="/assets/edu_familia_logo.png"
+                    alt="Edu Familia Official Logo"
+                    className="w-full max-w-[290px] sm:max-w-[340px] h-auto object-contain drop-shadow-[0_12px_28px_rgba(255,255,255,0.35)] filter brightness-110 transform transition duration-500 group-hover:scale-105"
+                  />
+                </div>
+
+                {/* Bottom Card Footer Details */}
+                <div className="relative z-10 mt-4 pt-4 border-t border-purple-500/30 w-full space-y-2">
+                  <span className="text-xs sm:text-sm font-black tracking-widest text-amber-300 uppercase block">
+                    PARENTS' MEET & ONLINE QUIZ 2026
+                  </span>
+                  <p className="text-xs text-purple-200 font-medium">
+                    Darussalam Tharqiya Edu Village • Koyilandy, Calicut
+                  </p>
+                  <div className="pt-2 flex items-center justify-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      40 Questions • Live
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -194,8 +215,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Regular AHSAS Hero Section - Positioned below EDU DAY */}
-      <section className="relative bg-white overflow-hidden pt-14 pb-16 border-b border-gray-100">
+      {/* Hero Section */}
+      <section className="relative bg-white overflow-hidden pt-16 pb-20 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto">
             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-maroon/10 text-maroon mb-6 animate-fade-in-down">
