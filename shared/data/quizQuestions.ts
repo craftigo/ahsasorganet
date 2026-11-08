@@ -2,6 +2,7 @@
 // Organized by AHSAS • Al Suffa (C3) • Darussalam Tharqiya Edu Village
 
 export const QUESTION_TIME_LIMIT_SECONDS = 30;
+export const QUIZ_QUESTIONS_PER_SESSION = 15;
 
 // Active Quiz Window: Sunday 08 Nov 2026 12:00 AM IST to Monday 09 Nov 2026 12:00 AM IST (24 hours)
 export const QUIZ_START_TIME_ISO = '2026-11-08T00:00:00+05:30';

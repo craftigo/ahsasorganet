@@ -48,6 +48,13 @@ FOR INSERT
 TO anon, authenticated, service_role
 WITH CHECK (true);
 
+-- Allow reading submissions for admin dashboard and real-time evaluation
+CREATE POLICY "quiz_submissions_public_select"
+ON public.quiz_submissions
+FOR SELECT
+TO anon, authenticated, service_role
+USING (true);
+
 -- Allow authenticated admins to view, evaluate, and delete submissions
 CREATE POLICY "quiz_submissions_admin_all"
 ON public.quiz_submissions
@@ -94,8 +101,6 @@ WITH CHECK (true);
 
 -- 10. Database Permissions Grants
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT INSERT ON TABLE public.quiz_submissions TO anon;
-GRANT ALL ON TABLE public.quiz_submissions TO authenticated, service_role;
-GRANT SELECT ON TABLE public.quiz_questions TO anon;
-GRANT ALL ON TABLE public.quiz_questions TO authenticated, service_role;
+GRANT ALL ON TABLE public.quiz_submissions TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.quiz_questions TO anon, authenticated, service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;

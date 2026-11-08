@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabaseServer } from '../lib/supabaseServer';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/authMiddleware';
-import { QUIZ_QUESTIONS, isQuizClosed } from '../../shared/data/quizQuestions';
+import { QUIZ_QUESTIONS, isQuizClosed, QUIZ_QUESTIONS_PER_SESSION } from '../../shared/data/quizQuestions';
 
 export const quizRouter = Router();
 
@@ -25,7 +25,8 @@ quizRouter.post('/submit', async (req: Request, res: Response): Promise<void> =>
       phone_number,
       place,
       answers,
-      time_taken_seconds
+      time_taken_seconds,
+      total_questions
     } = req.body;
 
     // Validation
@@ -89,7 +90,7 @@ quizRouter.post('/submit', async (req: Request, res: Response): Promise<void> =>
       phone_number: phone_number.trim(),
       place: place.trim(),
       score: computedScore,
-      total_questions: activeQuestions.length,
+      total_questions: Number(total_questions) || QUIZ_QUESTIONS_PER_SESSION || 15,
       time_taken_seconds: Number(time_taken_seconds) || 0,
       answers: sanitizedAnswers,
       submitted_at: new Date().toISOString()

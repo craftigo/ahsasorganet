@@ -14,14 +14,14 @@ import {
   MapPin,
   Lock,
   AlertTriangle,
-  Check,
   GraduationCap
 } from 'lucide-react';
 import {
   QuizQuestion,
   getStoredQuestions,
   isQuizClosed,
-  QUESTION_TIME_LIMIT_SECONDS
+  QUESTION_TIME_LIMIT_SECONDS,
+  QUIZ_QUESTIONS_PER_SESSION
 } from '../data/quizQuestions';
 import { supabase } from '../lib/supabase';
 import { saveLocalSubmission } from '../data/quizSubmissions';
@@ -222,10 +222,14 @@ export default function QuizPage(): JSX.Element {
     if (!validateForm()) return;
 
     // 1. Shuffle all base questions so every participant gets a unique randomized question sequence
-    const shuffledList = shuffleArray(questionsRef.current);
+    const shuffledAll = shuffleArray(questionsRef.current);
 
-    // 2. For each question, shuffle its 4 options so answers are never in a fixed position (A, B, C, D randomized)
-    const sessionList: SessionQuestion[] = shuffledList.map((q) => {
+    // 2. Select a unique mix of 15 questions per participant from the pool of 30
+    const targetCount = Math.min(QUIZ_QUESTIONS_PER_SESSION || 15, shuffledAll.length);
+    const selectedQuestions = shuffledAll.slice(0, targetCount);
+
+    // 3. For each of the 15 questions, shuffle its 4 options so answers are never in a fixed position (A, B, C, D randomized)
+    const sessionList: SessionQuestion[] = selectedQuestions.map((q) => {
       const originalIndices: [number, number, number, number] = [0, 1, 2, 3];
       const shuffledIndices = shuffleArray(originalIndices) as [number, number, number, number];
       const shuffledOptions = shuffledIndices.map((origIdx) => q.options[origIdx]) as [string, string, string, string];
@@ -274,8 +278,10 @@ export default function QuizPage(): JSX.Element {
   // Calculate score locally for fallback
   const calculateLocalScore = (currentAnswers: Record<number, number>): number => {
     let score = 0;
-    for (const q of questionsRef.current) {
-      if (currentAnswers[q.id] !== undefined && currentAnswers[q.id] === q.correctAnswerIndex) {
+    const sessionList = sessionQuestionsRef.current;
+    for (const sessionQ of sessionList) {
+      const origQ = questionsRef.current.find((q) => q.id === sessionQ.id);
+      if (origQ && currentAnswers[sessionQ.id] !== undefined && currentAnswers[sessionQ.id] === origQ.correctAnswerIndex) {
         score += 1;
       }
     }
@@ -291,6 +297,7 @@ export default function QuizPage(): JSX.Element {
     const score = calculateLocalScore(currentAnswers);
     const timeSpent = secondsElapsedRef.current;
     const currentForm = { ...formRef.current };
+    const totalSessionQuestions = sessionQuestionsRef.current.length || QUIZ_QUESTIONS_PER_SESSION || 15;
 
     setSubmitError(null);
 
@@ -307,7 +314,7 @@ export default function QuizPage(): JSX.Element {
       phone_number: currentForm.phoneNumber.trim(),
       place: currentForm.place.trim(),
       score,
-      total_questions: questionsRef.current.length,
+      total_questions: totalSessionQuestions,
       time_taken_seconds: timeSpent,
       answers: currentAnswers,
       submitted_at: new Date().toISOString(),
@@ -332,7 +339,8 @@ export default function QuizPage(): JSX.Element {
             phone_number: submissionPayload.phone_number,
             place: submissionPayload.place,
             answers: submissionPayload.answers,
-            time_taken_seconds: submissionPayload.time_taken_seconds
+            time_taken_seconds: submissionPayload.time_taken_seconds,
+            total_questions: submissionPayload.total_questions
           })
         });
 
@@ -450,44 +458,39 @@ export default function QuizPage(): JSX.Element {
   const isCurrentQuestionAnswered =
     currentQuestion && answers[currentQuestion.id] !== undefined;
 
-  // Question Navigator counts
-  const skippedCount = activeQuestionsList.filter(
-    (q, idx) => idx < currentQuestionIndex && answers[q.id] === undefined
-  ).length;
-
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-purple-600 selection:text-white">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-purple-600 selection:text-white w-full max-w-full overflow-x-hidden">
       {/* Quiz Top Header */}
-      <header className="bg-slate-950/80 backdrop-blur-md border-b border-purple-900/30 sticky top-0 z-30 px-4 py-3">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-white hover:text-purple-300 transition">
-            <Home className="w-5 h-5 text-purple-400" />
-            <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">AHSAS Portal</span>
+      <header className="bg-slate-950/90 backdrop-blur-md border-b border-purple-900/40 sticky top-0 z-30 px-3 sm:px-4 py-2.5 sm:py-3 w-full max-w-full overflow-hidden">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 w-full">
+          <Link to="/" className="flex items-center gap-1.5 text-white hover:text-purple-300 transition shrink-0">
+            <Home className="w-4 h-4 text-purple-400" />
+            <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">AHSAS</span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <h1 className="text-sm sm:text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-200 to-amber-300">
-              EDU FAMILIA — Online Quiz Competition
+          <div className="flex items-center gap-1.5 min-w-0 shrink">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <h1 className="text-xs sm:text-sm md:text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-200 to-amber-300 truncate">
+              EDU FAMILIA — Online Quiz
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {step === 'active' && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/80 border border-purple-500/40 text-purple-300 text-xs font-bold font-mono shadow-sm">
-                <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[10px] sm:text-xs font-bold font-mono shadow-sm">
+                <Clock className="w-3 h-3 text-amber-400" />
                 <span>{formatTime(secondsElapsed)}</span>
               </div>
             )}
-            <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-purple-600 text-white uppercase tracking-wider">
-              AL SUFFA (C3)
+            <span className="text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-purple-600 text-white uppercase tracking-wider whitespace-nowrap">
+              AL SUFFA
             </span>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-grow max-w-5xl w-full mx-auto px-4 py-6 sm:py-8">
+      <main className="flex-grow max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden box-border">
         {/* ===================================================================
             QUIZ CLOSED / EXPIRED WINDOW VIEW
         =================================================================== */}
@@ -764,28 +767,28 @@ export default function QuizPage(): JSX.Element {
             )}
 
             {/* Top Status & Progress Bar */}
-            <div className="bg-slate-950/80 backdrop-blur-md rounded-2xl p-4 border border-purple-500/20 shadow-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm font-semibold mb-3">
-                <div className="flex items-center gap-2">
+            <div className="bg-slate-950/80 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-purple-500/20 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold mb-3">
+                <div className="flex items-center justify-between sm:justify-start gap-2">
                   <span className="px-3 py-1 rounded-full bg-purple-600/30 border border-purple-500/40 text-purple-300 font-bold">
-                    Question {currentQuestionIndex + 1} of {questions.length}
+                    Question {currentQuestionIndex + 1} of {activeQuestionsList.length}
                   </span>
-                  <span className="text-slate-400">
-                    ({answeredCount} of {questions.length} Answered)
+                  <span className="text-slate-400 text-xs">
+                    ({answeredCount} of {activeQuestionsList.length} Answered)
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300 font-mono">
+                <div className="flex items-center justify-between sm:justify-end gap-2.5">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300 font-mono text-xs">
                     <Clock className="w-3.5 h-3.5 text-amber-400" />
                     <span>{formatTime(secondsElapsed)}</span>
                   </div>
 
                   <button
                     onClick={() => setConfirmSubmitModalOpen(true)}
-                    className="px-4 py-1.5 rounded-xl font-bold text-xs text-gray-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 transition shadow-md cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-xl font-bold text-xs text-gray-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 transition shadow-md cursor-pointer whitespace-nowrap"
                   >
-                    Finish & Submit ({answeredCount}/{questions.length})
+                    Finish Quiz ({answeredCount}/{activeQuestionsList.length})
                   </button>
                 </div>
               </div>
@@ -794,7 +797,7 @@ export default function QuizPage(): JSX.Element {
               <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
                 <div
                   className="bg-gradient-to-r from-purple-500 via-pink-500 to-amber-400 h-full transition-all duration-300 rounded-full"
-                  style={{ width: `${(answeredCount / questions.length) * 100}%` }}
+                  style={{ width: `${(answeredCount / activeQuestionsList.length) * 100}%` }}
                 />
               </div>
             </div>
@@ -918,11 +921,12 @@ export default function QuizPage(): JSX.Element {
               </div>
 
               {/* Bottom Navigation (Strictly Forward-Only — No Previous Button) */}
-              <div className="pt-6 border-t border-slate-800 flex items-center justify-between gap-3">
+              <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 {/* Left indicator replacing Previous button */}
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-400 text-xs font-semibold">
+                <div className="flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-400 text-xs font-semibold">
                   <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Forward-Only Mode (Past questions locked)</span>
+                  <span className="hidden sm:inline">Forward-Only Mode (Past questions locked)</span>
+                  <span className="sm:hidden">Forward-Only Mode (Locked)</span>
                 </div>
 
                 {/* Right Action: Next or Finish */}
@@ -930,7 +934,7 @@ export default function QuizPage(): JSX.Element {
                   <button
                     type="button"
                     onClick={handleProceedNext}
-                    className={`px-6 py-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-lg cursor-pointer ${
+                    className={`w-full sm:w-auto justify-center px-6 py-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-lg cursor-pointer ${
                       isCurrentQuestionAnswered
                         ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/30'
                         : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40'
@@ -943,7 +947,7 @@ export default function QuizPage(): JSX.Element {
                   <button
                     type="button"
                     onClick={() => setConfirmSubmitModalOpen(true)}
-                    className="px-6 py-3 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-gray-950 transition flex items-center gap-2 shadow-xl shadow-amber-400/20 cursor-pointer"
+                    className="w-full sm:w-auto justify-center px-6 py-3 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-gray-950 transition flex items-center gap-2 shadow-xl shadow-amber-400/20 cursor-pointer"
                   >
                     <span>Finish Quiz</span>
                     <Send className="w-4 h-4 text-gray-950" />
@@ -952,77 +956,36 @@ export default function QuizPage(): JSX.Element {
               </div>
             </div>
 
-            {/* Question Status Grid (Strictly Visual Indicator — Backtracking Disabled) */}
-            <div className="bg-slate-950/70 rounded-2xl p-5 border border-purple-500/20 shadow-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 text-xs">
-                <div>
-                  <span className="font-black text-white uppercase tracking-wider block">
-                    Question Progress Navigator
+            {/* Compact Current Question Indicator (Clean, Lightweight & Mobile-Friendly) */}
+            <div className="bg-slate-950/70 rounded-2xl p-3.5 sm:p-4 border border-purple-500/20 shadow-md flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-400 text-gray-950 font-black flex items-center justify-center text-xs shadow-md shadow-amber-400/20 shrink-0">
+                  {currentQuestionIndex + 1}
+                </span>
+                <div className="min-w-0">
+                  <span className="text-white font-extrabold text-xs sm:text-sm block truncate">
+                    Question {currentQuestionIndex + 1} of {activeQuestionsList.length}
                   </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Questions cannot be revisited once passed or skipped.
-                  </p>
-                </div>
-
-                {/* Live Status Legend */}
-                <div className="flex flex-wrap items-center gap-3 text-[11px]">
-                  <span className="flex items-center gap-1.5 text-emerald-300 font-semibold">
-                    <span className="w-3 h-3 rounded bg-emerald-600 border border-emerald-400 inline-block" /> Answered & Locked ({answeredCount})
-                  </span>
-                  <span className="flex items-center gap-1.5 text-amber-300 font-semibold">
-                    <span className="w-3 h-3 rounded bg-amber-600/30 border border-amber-500 inline-block" /> Skipped & Locked ({skippedCount})
-                  </span>
-                  <span className="flex items-center gap-1.5 text-yellow-300 font-semibold">
-                    <span className="w-3 h-3 rounded bg-amber-400 inline-block" /> Current
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-400">
-                    <span className="w-3 h-3 rounded bg-slate-800 border border-slate-700 inline-block" /> Upcoming
+                  <span className="text-[11px] text-slate-400">
+                    {answeredCount} answered • {activeQuestionsList.length - (currentQuestionIndex + 1)} remaining
                   </span>
                 </div>
               </div>
 
-              {/* Question Indicators (Locked & Unclickable) */}
-              <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-15 gap-1.5 sm:gap-2">
-                {activeQuestionsList.map((q, idx) => {
-                  const isCurrent = idx === currentQuestionIndex;
-                  const isPast = idx < currentQuestionIndex;
-                  const isAnswered = answers[q.id] !== undefined;
-
-                  let style = 'bg-slate-900/50 border border-slate-800 text-slate-500 cursor-not-allowed';
-                  let icon = null;
-
-                  if (isCurrent) {
-                    style =
-                      'bg-amber-400 text-gray-950 font-black ring-2 ring-white shadow-xl scale-105 animate-pulse cursor-default';
-                  } else if (isPast) {
-                    if (isAnswered) {
-                      style =
-                        'bg-emerald-950/70 border border-emerald-500/70 text-emerald-300 font-bold cursor-not-allowed';
-                      icon = <Check className="w-2.5 h-2.5 text-emerald-400" />;
-                    } else {
-                      style =
-                        'bg-amber-950/40 border border-amber-500/50 text-amber-300/80 font-bold cursor-not-allowed';
-                      icon = <Lock className="w-2.5 h-2.5 text-amber-400/80" />;
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={q.id}
-                      title={
-                        isCurrent
-                          ? `Question ${idx + 1} (Current Active)`
-                          : isPast
-                          ? `Question ${idx + 1} (${isAnswered ? 'Answered' : 'Skipped'} - Locked)`
-                          : `Question ${idx + 1} (Upcoming)`
-                      }
-                      className={`h-9 rounded-lg text-xs transition flex flex-col items-center justify-center select-none ${style}`}
-                    >
-                      <span className="leading-none">{idx + 1}</span>
-                      {icon && <span className="mt-0.5">{icon}</span>}
-                    </div>
-                  );
-                })}
+              {/* Progress Dots for the 15 questions */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-hidden">
+                {activeQuestionsList.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      idx === currentQuestionIndex
+                        ? 'w-4 sm:w-5 bg-amber-400 ring-2 ring-amber-400/30'
+                        : idx < currentQuestionIndex
+                        ? 'w-1.5 sm:w-2 bg-emerald-500'
+                        : 'w-1 sm:w-1.5 bg-slate-800'
+                    }`}
+                  />
+                ))}
               </div>
             </div>
           </div>

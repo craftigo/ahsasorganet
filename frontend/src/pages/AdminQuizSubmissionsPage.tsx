@@ -90,37 +90,39 @@ export const AdminQuizSubmissionsPage: React.FC = () => {
     try {
       let remoteEntries: QuizSubmission[] = [];
 
-      // 1. First attempt to fetch from backend Express API
+      // 1. Direct Supabase query (real-time primary source of truth)
       try {
-        const res = await fetch('/api/quiz/admin/submissions', {
-          headers: {
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
-          }
-        });
+        const { data, error } = await supabase
+          .from('quiz_submissions')
+          .select('*')
+          .order('score', { ascending: false })
+          .order('time_taken_seconds', { ascending: true })
+          .order('submitted_at', { ascending: true });
 
-        if (res.ok) {
-          const data = await res.json();
-          remoteEntries = data.submissions || [];
+        if (!error && data && Array.isArray(data)) {
+          remoteEntries = data as QuizSubmission[];
         }
-      } catch (apiErr) {
-        // Express route unavailable, fallback to direct Supabase query
+      } catch (sbErr) {
+        console.warn('Supabase submissions query notice:', sbErr);
       }
 
-      // 2. Direct Supabase query if Express route didn't return entries
+      // 2. Fallback to Express backend API if direct query was empty
       if (remoteEntries.length === 0) {
         try {
-          const { data, error } = await supabase
-            .from('quiz_submissions')
-            .select('*')
-            .order('score', { ascending: false })
-            .order('time_taken_seconds', { ascending: true })
-            .order('submitted_at', { ascending: true });
+          const res = await fetch('/api/quiz/admin/submissions', {
+            headers: {
+              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
+            }
+          });
 
-          if (!error && data) {
-            remoteEntries = data as QuizSubmission[];
+          if (res.ok) {
+            const data = await res.json();
+            if (data.submissions && Array.isArray(data.submissions) && data.submissions.length > 0) {
+              remoteEntries = data.submissions;
+            }
           }
-        } catch (sbErr) {
-          console.warn('Supabase submissions query notice:', sbErr);
+        } catch (apiErr) {
+          // Express route unavailable
         }
       }
 
@@ -206,6 +208,8 @@ export const AdminQuizSubmissionsPage: React.FC = () => {
 
   // Analytics Metrics
   const totalSubmissions = submissions.length;
+  const sessionQuestionCount =
+    submissions.length > 0 && submissions[0].total_questions ? submissions[0].total_questions : 15;
   const highestScore = totalSubmissions > 0 ? Math.max(...submissions.map((s) => s.score)) : 0;
   const averageScore =
     totalSubmissions > 0
@@ -561,7 +565,7 @@ export const AdminQuizSubmissionsPage: React.FC = () => {
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          <span>Question Bank & Editor ({questions.length})</span>
+          <span>Question Bank ({questions.length} • 15 per participant)</span>
         </button>
 
         <button
@@ -596,7 +600,7 @@ export const AdminQuizSubmissionsPage: React.FC = () => {
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Highest Score</span>
               <div className="text-2xl sm:text-3xl font-black text-amber-600 mt-1 flex items-baseline gap-1">
                 <span>{highestScore}</span>
-                <span className="text-sm text-gray-400 font-bold">/ {questions.length}</span>
+                <span className="text-sm text-gray-400 font-bold">/ {sessionQuestionCount}</span>
               </div>
             </div>
 
@@ -604,14 +608,15 @@ export const AdminQuizSubmissionsPage: React.FC = () => {
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Average Score</span>
               <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1 flex items-baseline gap-1">
                 <span>{averageScore}</span>
-                <span className="text-sm text-gray-400 font-bold">/ {questions.length}</span>
+                <span className="text-sm text-gray-400 font-bold">/ {sessionQuestionCount}</span>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Total Questions</span>
-              <div className="text-2xl sm:text-3xl font-black text-purple-600 mt-1">
-                <span>{questions.length}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Questions per Quiz</span>
+              <div className="text-2xl sm:text-3xl font-black text-purple-600 mt-1 flex items-baseline gap-1.5">
+                <span>{sessionQuestionCount}</span>
+                <span className="text-xs text-gray-400 font-bold">({questions.length} in pool)</span>
               </div>
             </div>
           </div>
