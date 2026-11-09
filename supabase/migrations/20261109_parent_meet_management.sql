@@ -1,7 +1,7 @@
 -- ==============================================================================
 -- Migration: 20261109_parent_meet_management.sql
 -- Description: EDU FAMILIA – THARQIYA FAMILY MEET
--- Complete Parent Registration, QR Pass, Entry Management, Attendance,
+-- Complete Parent Registration, Single QR Pass, Entry Management, Attendance,
 -- Food Token & Admin Control System
 -- ==============================================================================
 
@@ -28,31 +28,13 @@ CREATE TABLE IF NOT EXISTS public.parent_meet_settings (
     food_requires_meeting BOOLEAN NOT NULL DEFAULT true,
     food_max_tokens_per_reg INTEGER NOT NULL DEFAULT 1,
     whatsapp_enabled BOOLEAN NOT NULL DEFAULT false,
-    whatsapp_api_status TEXT NOT NULL DEFAULT 'testing', -- 'unconfigured' | 'testing' | 'active'
+    whatsapp_api_status TEXT NOT NULL DEFAULT 'testing',
     whatsapp_phone_number_id TEXT DEFAULT '',
     whatsapp_business_account_id TEXT DEFAULT '',
     whatsapp_access_token TEXT DEFAULT '',
     whatsapp_template_name TEXT DEFAULT 'edu_familia_qr_pass',
-    form_fields_config JSONB NOT NULL DEFAULT '{
-      "parent_name": {"enabled": true, "required": true, "label": "Parent / Guardian Name"},
-      "whatsapp_number": {"enabled": true, "required": true, "label": "WhatsApp Number"},
-      "mobile_number": {"enabled": true, "required": false, "label": "Alternative Mobile Number"},
-      "email": {"enabled": true, "required": false, "label": "Email Address"},
-      "address": {"enabled": true, "required": false, "label": "Residential Address / Place"},
-      "student_name": {"enabled": true, "required": true, "label": "Child / Student Name"},
-      "student_class": {"enabled": true, "required": true, "label": "Class / Department"},
-      "attendees_count": {"enabled": true, "required": true, "label": "Number of Attendees"},
-      "additional_details": {"enabled": true, "required": false, "label": "Additional Notes"}
-    }'::jsonb,
-    event_programme JSONB NOT NULL DEFAULT '[
-      {"time": "08:30 AM", "title": "Registration & Welcome Reception", "location": "Main Entrance"},
-      {"time": "09:00 AM", "title": "Edu Expo & Innovation Gallery Open", "location": "Expo Pavilion"},
-      {"time": "10:00 AM", "title": "Grand Inaugural Session", "location": "Main Auditorium"},
-      {"time": "11:15 AM", "title": "Parenting Keynote: Nurturing Faith & Values", "location": "Main Auditorium"},
-      {"time": "01:00 PM", "title": "Dhuhr Prayer & Traditional Feast (Food Counter)", "location": "Dining Hall"},
-      {"time": "02:30 PM", "title": "Teacher-Parent Interactive Conclave", "location": "Classrooms & Quadrangle"},
-      {"time": "04:30 PM", "title": "Valedictory & Dua Majlis", "location": "Main Auditorium"}
-    }'::jsonb,
+    form_fields_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+    event_programme JSONB NOT NULL DEFAULT '[]'::jsonb,
     public_announcements TEXT DEFAULT 'Welcome parents! Please present your unique QR pass at the Expo entrance, Main Auditorium, and Food Counter.',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -63,7 +45,7 @@ INSERT INTO public.parent_meet_settings (id)
 VALUES ('default')
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Parent Registrations Table
+-- 2. Parent Registrations Table (Single Personal QR Token per registration)
 CREATE TABLE IF NOT EXISTS public.parent_registrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     registration_number TEXT NOT NULL UNIQUE,
@@ -79,8 +61,8 @@ CREATE TABLE IF NOT EXISTS public.parent_registrations (
     custom_fields JSONB DEFAULT '{}'::jsonb,
     qr_token TEXT NOT NULL UNIQUE,
     qr_token_hash TEXT NOT NULL,
-    pass_status TEXT NOT NULL DEFAULT 'active', -- 'active' | 'revoked' | 'cancelled'
-    whatsapp_status TEXT NOT NULL DEFAULT 'not_configured', -- 'pending' | 'sent' | 'delivered' | 'failed' | 'not_configured'
+    pass_status TEXT NOT NULL DEFAULT 'active',
+    whatsapp_status TEXT NOT NULL DEFAULT 'not_configured',
     whatsapp_sent_at TIMESTAMPTZ DEFAULT NULL,
     whatsapp_error TEXT DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -92,7 +74,7 @@ CREATE INDEX IF NOT EXISTS idx_parent_reg_phone ON public.parent_registrations(w
 CREATE INDEX IF NOT EXISTS idx_parent_reg_qr ON public.parent_registrations(qr_token);
 CREATE INDEX IF NOT EXISTS idx_parent_reg_created ON public.parent_registrations(created_at DESC);
 
--- 3. Expo Entry Management Table (One-time entry tracking)
+-- 3. Expo Entry Management Table (One-time entry tracking constraint)
 CREATE TABLE IF NOT EXISTS public.expo_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     registration_id UUID NOT NULL REFERENCES public.parent_registrations(id) ON DELETE CASCADE,
@@ -124,7 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_meeting_att_time ON public.meeting_attendance(att
 CREATE TABLE IF NOT EXISTS public.food_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     registration_id UUID NOT NULL REFERENCES public.parent_registrations(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'pending_meeting', -- 'pending_meeting' | 'eligible' | 'redeemed'
+    status TEXT NOT NULL DEFAULT 'pending_meeting',
     tokens_allocated INTEGER NOT NULL DEFAULT 1,
     tokens_redeemed INTEGER NOT NULL DEFAULT 0,
     redeemed_at TIMESTAMPTZ DEFAULT NULL,
@@ -143,7 +125,7 @@ CREATE INDEX IF NOT EXISTS idx_food_tokens_status ON public.food_tokens(status);
 CREATE TABLE IF NOT EXISTS public.scanner_stations (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    type TEXT NOT NULL, -- 'expo' | 'meeting' | 'food'
+    type TEXT NOT NULL,
     access_key TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
     assigned_staff_name TEXT DEFAULT '',
@@ -152,7 +134,7 @@ CREATE TABLE IF NOT EXISTS public.scanner_stations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed initial default scanner stations
+-- Seed default scanner stations
 INSERT INTO public.scanner_stations (id, name, type, access_key, is_active, assigned_staff_name)
 VALUES
     ('expo-gate-1', 'Expo Main Gate', 'expo', 'EXPO-PASS-2026', true, 'Expo Reception'),
@@ -160,14 +142,14 @@ VALUES
     ('food-counter-1', 'Dining Hall Food Counter', 'food', 'FOOD-PASS-2026', true, 'Catering Manager')
 ON CONFLICT (id) DO NOTHING;
 
--- 7. Scan Logs Table (Every scan attempt)
+-- 7. Scan Activity Logs Table
 CREATE TABLE IF NOT EXISTS public.scan_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    station_type TEXT NOT NULL, -- 'expo' | 'meeting' | 'food'
+    station_type TEXT NOT NULL,
     station_id TEXT DEFAULT '',
     registration_id UUID REFERENCES public.parent_registrations(id) ON DELETE SET NULL,
     qr_token_masked TEXT DEFAULT '',
-    result TEXT NOT NULL, -- 'approved' | 'denied' | 'already_entered' | 'already_attended' | 'missing_meeting' | 'already_redeemed' | 'invalid_qr' | 'revoked'
+    result TEXT NOT NULL,
     reason TEXT DEFAULT '',
     staff_name TEXT DEFAULT '',
     scanned_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -176,10 +158,10 @@ CREATE TABLE IF NOT EXISTS public.scan_logs (
 CREATE INDEX IF NOT EXISTS idx_scan_logs_time ON public.scan_logs(scanned_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scan_logs_station ON public.scan_logs(station_type);
 
--- 8. Audit Logs & Admin Overrides Table
+-- 8. Audit Logs Table
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    action TEXT NOT NULL, -- 'override_expo_reset' | 'override_attendance_reset' | 'override_food_reset' | 'qr_regenerated' | 'registration_edited' | 'registration_deleted' | 'rule_change'
+    action TEXT NOT NULL,
     registration_id UUID REFERENCES public.parent_registrations(id) ON DELETE SET NULL,
     performed_by TEXT NOT NULL,
     previous_status JSONB DEFAULT NULL,
@@ -197,7 +179,7 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_logs (
     phone_number TEXT NOT NULL,
     message_type TEXT NOT NULL DEFAULT 'qr_pass',
     provider TEXT NOT NULL DEFAULT 'meta_cloud_api',
-    status TEXT NOT NULL, -- 'sent' | 'delivered' | 'failed' | 'simulated'
+    status TEXT NOT NULL,
     provider_response_id TEXT DEFAULT NULL,
     error_message TEXT DEFAULT NULL,
     payload_snapshot JSONB DEFAULT NULL,
@@ -208,7 +190,6 @@ CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_reg ON public.whatsapp_logs(registr
 
 -- ==============================================================================
 -- 10. ROW LEVEL SECURITY (RLS) POLICIES
--- Clean, secure, idempotent definitions with zero CRITICAL warnings
 -- ==============================================================================
 
 ALTER TABLE public.parent_meet_settings ENABLE ROW LEVEL SECURITY;
@@ -221,7 +202,6 @@ ALTER TABLE public.scan_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.whatsapp_logs ENABLE ROW LEVEL SECURITY;
 
--- Clean existing policies
 DROP POLICY IF EXISTS "parent_meet_settings_read_all" ON public.parent_meet_settings;
 DROP POLICY IF EXISTS "parent_meet_settings_write_admin" ON public.parent_meet_settings;
 DROP POLICY IF EXISTS "parent_registrations_insert_public" ON public.parent_registrations;
@@ -235,16 +215,11 @@ DROP POLICY IF EXISTS "scan_logs_all" ON public.scan_logs;
 DROP POLICY IF EXISTS "audit_logs_all" ON public.audit_logs;
 DROP POLICY IF EXISTS "whatsapp_logs_all" ON public.whatsapp_logs;
 
--- Policies for parent_meet_settings
 CREATE POLICY "parent_meet_settings_read_all" ON public.parent_meet_settings FOR SELECT USING (true);
 CREATE POLICY "parent_meet_settings_write_admin" ON public.parent_meet_settings FOR ALL TO authenticated, service_role USING (true) WITH CHECK (true);
-
--- Policies for parent_registrations
 CREATE POLICY "parent_registrations_insert_public" ON public.parent_registrations FOR INSERT WITH CHECK (true);
 CREATE POLICY "parent_registrations_select_all" ON public.parent_registrations FOR SELECT USING (true);
 CREATE POLICY "parent_registrations_admin_all" ON public.parent_registrations FOR ALL TO authenticated, service_role USING (true) WITH CHECK (true);
-
--- Policies for entries, attendance, food
 CREATE POLICY "expo_entries_all" ON public.expo_entries FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "meeting_attendance_all" ON public.meeting_attendance FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "food_tokens_all" ON public.food_tokens FOR ALL USING (true) WITH CHECK (true);
@@ -265,4 +240,3 @@ GRANT ALL ON TABLE public.scan_logs TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.audit_logs TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.whatsapp_logs TO anon, authenticated, service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-
