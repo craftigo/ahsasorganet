@@ -42,6 +42,10 @@ export function normalizeWhatsAppNumber(rawPhone: string): string {
   let digits = (rawPhone || '').replace(/\D/g, '');
   if (!digits) return '';
 
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
+
   if (digits.length === 11 && digits.startsWith('0')) {
     digits = digits.slice(1);
   }
@@ -144,22 +148,19 @@ export function formatWhatsAppMessage(
 }
 
 /**
- * Generates direct WhatsApp URL to open WhatsApp on the admin's device
- * with the parent's phone pre-filled with the complete admission pass and card details.
+ * Construct raw message text for sharing parent meet pass
  */
-export function buildParentWhatsAppShareUrl(
-  phone: string,
+export function getParentPassShareText(
   parentName: string,
   regNumber: string,
   qrToken: string,
   studentName?: string,
   baseUrl: string = 'https://ahsasorganet.vercel.app'
 ): string {
-  const cleanPhone = normalizeWhatsAppNumber(phone);
   const passUrl = `${baseUrl}/event/pass/${qrToken}`;
   const cardUrl = `${baseUrl}/api/parent-meet/pass/${qrToken}/card.png`;
 
-  const msg =
+  return (
     `*Assalamu Alaikum, ${parentName}!* ✨\n\n` +
     `Your registration for *EDU FAMILIA – THARQIYA FAMILY MEET* is confirmed!\n\n` +
     `📋 *Registration ID:* ${regNumber}` +
@@ -172,7 +173,56 @@ export function buildParentWhatsAppShareUrl(
     `• Please keep your personal QR pass ready upon arrival.\n` +
     `• The same personal pass is used for: 1. Expo Entry, 2. Main Meeting Attendance, 3. Food Token Collection.\n\n` +
     `Thank you,\n` +
-    `*AHSAS – Anwarul Huda Students’ Association*`;
+    `*AHSAS – Anwarul Huda Students’ Association*`
+  );
+}
 
-  return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+/**
+ * Generates direct universal WhatsApp URL (wa.me) to open WhatsApp on the user's device
+ * with the parent's phone pre-filled with the complete admission pass and card details.
+ * Compatible with mobile app (Android / iOS) and desktop.
+ */
+export function buildParentWhatsAppShareUrl(
+  phone: string,
+  parentName: string,
+  regNumber: string,
+  qrToken: string,
+  studentName?: string,
+  baseUrl: string = 'https://ahsasorganet.vercel.app'
+): string {
+  const cleanPhone = normalizeWhatsAppNumber(phone);
+  const msg = getParentPassShareText(parentName, regNumber, qrToken, studentName, baseUrl);
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+}
+
+/**
+ * Generates desktop WhatsApp Web specific URL
+ */
+export function buildParentWhatsAppWebUrl(
+  phone: string,
+  parentName: string,
+  regNumber: string,
+  qrToken: string,
+  studentName?: string,
+  baseUrl: string = 'https://ahsasorganet.vercel.app'
+): string {
+  const cleanPhone = normalizeWhatsAppNumber(phone);
+  const msg = getParentPassShareText(parentName, regNumber, qrToken, studentName, baseUrl);
+  return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+}
+
+/**
+ * Generates direct native WhatsApp app URI (whatsapp://) for mobile devices
+ */
+export function buildParentWhatsAppNativeUrl(
+  phone: string,
+  parentName: string,
+  regNumber: string,
+  qrToken: string,
+  studentName?: string,
+  baseUrl: string = 'https://ahsasorganet.vercel.app'
+): string {
+  const cleanPhone = normalizeWhatsAppNumber(phone);
+  const msg = getParentPassShareText(parentName, regNumber, qrToken, studentName, baseUrl);
+  return `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
 }

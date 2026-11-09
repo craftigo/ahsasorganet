@@ -20,7 +20,11 @@ import {
   Radio,
   ArrowUpRight,
   AlertTriangle,
-  Trash2
+  Trash2,
+  Copy,
+  Check,
+  Smartphone,
+  Laptop
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { parentMeetService } from '../services/parentMeetService';
@@ -34,7 +38,11 @@ import {
 } from '../../../shared/types';
 import {
   DEFAULT_PARENT_MEET_SETTINGS,
-  buildParentWhatsAppShareUrl
+  buildParentWhatsAppShareUrl,
+  buildParentWhatsAppWebUrl,
+  buildParentWhatsAppNativeUrl,
+  getParentPassShareText,
+  normalizeWhatsAppNumber
 } from '../../../shared/data/parentMeetDefaults';
 
 type AdminTab =
@@ -93,6 +101,9 @@ export default function AdminParentMeetPage(): JSX.Element {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingReg, setDeletingReg] = useState<ParentRegistration | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waModalReg, setWaModalReg] = useState<ParentRegistration | null>(null);
+  const [copiedSuccess, setCopiedSuccess] = useState(false);
 
   // Manual Add Form State
   const [newParentName, setNewParentName] = useState('');
@@ -216,23 +227,33 @@ export default function AdminParentMeetPage(): JSX.Element {
     }
   };
 
-  // Direct Device WhatsApp Sender (Opens active WhatsApp on admin's device directly to parent's number)
-  const handleOpenWhatsAppFromDevice = (reg: ParentRegistration) => {
+  // Direct Device WhatsApp Modal Handler
+  const openWhatsAppModal = (reg: ParentRegistration) => {
+    setWaModalReg(reg);
+    setCopiedSuccess(false);
+    setWaModalOpen(true);
+  };
+
+  // Copy Formatted Pass Message
+  const handleCopyMessage = async (reg: ParentRegistration) => {
     const baseUrl = window.location.origin.includes('localhost')
       ? 'https://ahsasorganet.vercel.app'
       : window.location.origin;
-
-    const waUrl = buildParentWhatsAppShareUrl(
-      reg.whatsapp_number,
+    const text = getParentPassShareText(
       reg.parent_name,
       reg.registration_number,
       reg.qr_token,
       reg.student_name,
       baseUrl
     );
-
-    window.open(waUrl, '_blank', 'noopener,noreferrer');
-    showNotification(`Opened WhatsApp chat for ${reg.parent_name} (${reg.whatsapp_number})`);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSuccess(true);
+      showNotification('Pass message copied to clipboard!');
+      setTimeout(() => setCopiedSuccess(false), 3000);
+    } catch {
+      alert('Could not copy to clipboard. Please copy manually from the message preview.');
+    }
   };
 
   // Delete Registration Confirmation
@@ -940,9 +961,9 @@ export default function AdminParentMeetPage(): JSX.Element {
 
                             <button
                               type="button"
-                              onClick={() => handleOpenWhatsAppFromDevice(reg)}
+                              onClick={() => openWhatsAppModal(reg)}
                               className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
-                              title={`Open WhatsApp on this device to send pass to ${reg.whatsapp_number}`}
+                              title={`Send pass via WhatsApp to ${reg.whatsapp_number}`}
                             >
                               <MessageCircle className="w-4 h-4" />
                             </button>
@@ -1829,6 +1850,166 @@ export default function AdminParentMeetPage(): JSX.Element {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          MODAL: WHATSAPP DIRECT SHARE
+      ===================================================================== */}
+      {waModalOpen && waModalReg && (() => {
+        const baseUrl = window.location.origin.includes('localhost')
+          ? 'https://ahsasorganet.vercel.app'
+          : window.location.origin;
+        const cleanPhone = normalizeWhatsAppNumber(waModalReg.whatsapp_number);
+        const waUniversalUrl = buildParentWhatsAppShareUrl(
+          waModalReg.whatsapp_number,
+          waModalReg.parent_name,
+          waModalReg.registration_number,
+          waModalReg.qr_token,
+          waModalReg.student_name,
+          baseUrl
+        );
+        const waWebUrl = buildParentWhatsAppWebUrl(
+          waModalReg.whatsapp_number,
+          waModalReg.parent_name,
+          waModalReg.registration_number,
+          waModalReg.qr_token,
+          waModalReg.student_name,
+          baseUrl
+        );
+        const waNativeUrl = buildParentWhatsAppNativeUrl(
+          waModalReg.whatsapp_number,
+          waModalReg.parent_name,
+          waModalReg.registration_number,
+          waModalReg.qr_token,
+          waModalReg.student_name,
+          baseUrl
+        );
+        const previewMsg = getParentPassShareText(
+          waModalReg.parent_name,
+          waModalReg.registration_number,
+          waModalReg.qr_token,
+          waModalReg.student_name,
+          baseUrl
+        );
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+            <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-emerald-100 space-y-4 animate-scale-up max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2 text-emerald-600 font-bold">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base text-gray-900 font-black">Send Pass via WhatsApp</h3>
+                    <p className="text-[11px] text-gray-500 font-normal">Choose your sending method on this device</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWaModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Recipient Details Card */}
+              <div className="p-3.5 bg-emerald-50/60 border border-emerald-200/70 rounded-2xl space-y-1 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-gray-900 text-sm">{waModalReg.parent_name}</span>
+                  <span className="font-mono font-bold bg-white px-2 py-0.5 rounded-lg border border-emerald-200 text-emerald-800 text-[11px]">
+                    {waModalReg.registration_number}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600 font-mono text-xs">
+                  <span>Target WhatsApp:</span>
+                  <strong className="text-emerald-700 font-bold">+{cleanPhone}</strong>
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Student: <strong className="text-gray-700">{waModalReg.student_name}</strong> {waModalReg.student_class && `(${waModalReg.student_class})`}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5 pt-1">
+                {/* Method 1: Universal wa.me (works on mobile app and modern browsers) */}
+                <a
+                  href={waUniversalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => showNotification(`Opened WhatsApp for ${waModalReg.parent_name}`)}
+                  className="flex items-center justify-center gap-2.5 w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>1. Open in WhatsApp (Mobile App & Universal)</span>
+                  <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-80" />
+                </a>
+
+                {/* Method 2: Direct WhatsApp Web (for laptops & PCs) */}
+                <a
+                  href={waWebUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => showNotification(`Opened WhatsApp Web for ${waModalReg.parent_name}`)}
+                  className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 font-bold text-xs transition cursor-pointer"
+                >
+                  <Laptop className="w-4 h-4 text-sky-600" />
+                  <span>2. Open in WhatsApp Web (PC / Laptop)</span>
+                  <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-70" />
+                </a>
+
+                {/* Method 3: Mobile Native URI Fallback */}
+                <a
+                  href={waNativeUrl}
+                  className="flex items-center justify-center gap-2.5 w-full py-2 px-4 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium text-xs transition cursor-pointer"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-gray-500" />
+                  <span>3. Force Open Native App (Mobile App Fallback)</span>
+                </a>
+
+                {/* Method 4: Copy Message Text */}
+                <button
+                  type="button"
+                  onClick={() => handleCopyMessage(waModalReg)}
+                  className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs transition cursor-pointer"
+                >
+                  {copiedSuccess ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      <span className="text-emerald-700">Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-gray-600" />
+                      <span>Copy Full Pass Message Text</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Message Preview */}
+              <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  Message Preview:
+                </span>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-[11px] font-mono text-gray-700 whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">
+                  {previewMsg}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setWaModalOpen(false)}
+                  className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
