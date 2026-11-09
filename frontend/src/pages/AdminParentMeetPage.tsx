@@ -1197,6 +1197,25 @@ export default function AdminParentMeetPage(): JSX.Element {
             </span>
           </div>
 
+          {/* Sender Overview Card */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 text-xs space-y-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div>
+                <span className="font-extrabold text-sky-950 text-sm">Official WhatsApp Sender: +91 83019 48964</span>
+                <p className="text-[11px] text-sky-800">
+                  Mode: <strong>{settings.whatsapp_enabled ? 'Live Cloud API' : 'Simulated Sandbox'}</strong> • Delivery: Personalized QR Pass Card Image (PNG)
+                </p>
+              </div>
+              <span className="text-[10px] font-mono bg-white px-3 py-1 rounded-full border border-sky-300 font-bold text-sky-900">
+                Sender: 918301948964
+              </span>
+            </div>
+            <div className="text-[11px] text-gray-600 border-t border-sky-200/60 pt-2 flex flex-wrap gap-4">
+              <span>Webhook Endpoint: <code className="bg-white/80 px-1.5 py-0.5 rounded text-[10px] font-mono">https://ahsasorganet.vercel.app/api/parent-meet/whatsapp/webhook</code></span>
+              <span>Verify Token: <code className="bg-white/80 px-1.5 py-0.5 rounded text-[10px] font-mono">ahsas_edu_familia_2026</code></span>
+            </div>
+          </div>
+
           <div className="space-y-3">
             {logs.whatsapp_logs.length === 0 ? (
               <p className="text-xs text-gray-400 italic text-center py-4">No WhatsApp logs recorded yet.</p>
@@ -1388,6 +1407,97 @@ export default function AdminParentMeetPage(): JSX.Element {
                 />
                 <span className="font-bold text-gray-800">Enable Edu Expo Scanner Station</span>
               </label>
+            </div>
+          </div>
+
+          {/* WhatsApp Cloud API Configuration */}
+          <div className="pt-6 border-t border-gray-100 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <span className="font-extrabold uppercase text-gray-700 block tracking-wider text-[11px]">
+                  Official WhatsApp Cloud API Configuration:
+                </span>
+                <p className="text-[11px] text-gray-500">
+                  Automated personalized QR card image delivery from verified business sender <strong>+91 83019 48964</strong>.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-200">
+                <input
+                  type="checkbox"
+                  checked={editableSettings.whatsapp_enabled}
+                  onChange={(e) => setEditableSettings({ ...editableSettings, whatsapp_enabled: e.target.checked })}
+                  className="rounded text-sky-600 focus:ring-sky-500"
+                />
+                <span className="font-bold text-xs text-sky-900">Enable Live WhatsApp Delivery</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Official Sender Account (Fixed)</label>
+                <input
+                  type="text"
+                  disabled
+                  value="+91 83019 48964 (International: 918301948964)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-100 text-gray-600 font-mono font-semibold"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  Sender account. Each parent's unique pass is sent to their registered WhatsApp number.
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Meta Phone Number ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 106548729182374"
+                  value={editableSettings.whatsapp_phone_number_id || ''}
+                  onChange={(e) => setEditableSettings({ ...editableSettings, whatsapp_phone_number_id: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-mono text-xs"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  Found in Meta Developer Portal &gt; WhatsApp &gt; API Setup.
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Meta Business Account ID (WABA ID)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 108472910482910"
+                  value={editableSettings.whatsapp_business_account_id || ''}
+                  onChange={(e) => setEditableSettings({ ...editableSettings, whatsapp_business_account_id: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">WhatsApp Utility Template Name (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. edu_familia_qr_pass"
+                  value={editableSettings.whatsapp_template_name || ''}
+                  onChange={(e) => setEditableSettings({ ...editableSettings, whatsapp_template_name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-mono text-xs"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  Leave blank to use direct high-res card image with caption.
+                </span>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-gray-700 mb-1">Meta Permanent System User Access Token</label>
+                <input
+                  type="password"
+                  placeholder="EAABw..."
+                  value={editableSettings.whatsapp_access_token || ''}
+                  onChange={(e) => setEditableSettings({ ...editableSettings, whatsapp_access_token: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-mono text-xs"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  Stored securely. Never exposed in public client responses.
+                </span>
+              </div>
             </div>
           </div>
         </form>

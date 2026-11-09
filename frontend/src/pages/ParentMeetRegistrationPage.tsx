@@ -36,6 +36,7 @@ export default function ParentMeetRegistrationPage(): JSX.Element {
   const [studentClass, setStudentClass] = useState('');
   const [attendeesCount, setAttendeesCount] = useState(1);
   const [additionalDetails, setAdditionalDetails] = useState('');
+  const [whatsappConsent, setWhatsappConsent] = useState(true);
 
   // Submit State
   const [submitting, setSubmitting] = useState(false);
@@ -108,7 +109,8 @@ export default function ParentMeetRegistrationPage(): JSX.Element {
         student_name: studentName,
         student_class: studentClass,
         attendees_count: attendeesCount,
-        additional_details: additionalDetails
+        additional_details: additionalDetails,
+        whatsapp_consent: whatsappConsent
       });
 
       setSuccessRegistration(res.registration);
@@ -130,12 +132,12 @@ export default function ParentMeetRegistrationPage(): JSX.Element {
     }
   };
 
-  // Download QR pass image
-  const handleDownloadQR = () => {
-    if (!qrDataUrl) return;
+  // Download personalized admission card PNG
+  const handleDownloadCardPNG = () => {
+    if (!successRegistration?.qr_token) return;
     const link = document.createElement('a');
-    link.href = qrDataUrl;
-    link.download = `QR_Pass_${successRegistration?.registration_number || 'Edu_Familia'}.png`;
+    link.href = `/api/parent-meet/pass/${successRegistration.qr_token}/card.png`;
+    link.download = `Edu_Familia_Pass_${successRegistration.registration_number || 'Card'}.png`;
     link.click();
   };
 
@@ -301,15 +303,26 @@ export default function ParentMeetRegistrationPage(): JSX.Element {
                 </div>
               </div>
 
+              {/* Automatic WhatsApp Delivery Status Notice */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-xs text-emerald-950 space-y-1">
+                <div className="font-extrabold flex items-center gap-2 text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Automatic WhatsApp Admission Card Dispatch</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Your personalized admission card image has been queued for WhatsApp delivery to <strong>{successRegistration.whatsapp_number}</strong> from our official WhatsApp Business account <strong>+91 83019 48964</strong>.
+                </p>
+              </div>
+
               {/* Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={handleDownloadQR}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                  onClick={handleDownloadCardPNG}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-md transition cursor-pointer text-center"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download QR Pass (PNG)</span>
+                  <span>Download Card (PNG)</span>
                 </button>
 
                 <Link
@@ -317,19 +330,19 @@ export default function ParentMeetRegistrationPage(): JSX.Element {
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gray-900 hover:bg-black text-white font-bold text-xs shadow-md transition cursor-pointer text-center"
                 >
                   <FileText className="w-4 h-4 text-sky-300" />
-                  <span>Open Printable Pass</span>
+                  <span>Open Digital Pass / PDF</span>
                 </Link>
 
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    `Assalamu Alaikum! Here is my QR Pass for Edu Familia - Tharqiya Family Meet: ${passUrl}`
+                    `Assalamu Alaikum! Here is my personal QR Pass for Edu Familia - Tharqiya Family Meet: ${passUrl}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition cursor-pointer text-center"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>Share via WhatsApp</span>
+                  <span>Forward via WhatsApp</span>
                 </a>
               </div>
 
@@ -545,6 +558,20 @@ export default function ParentMeetRegistrationPage(): JSX.Element {
                     onChange={(e) => setAdditionalDetails(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-sky-500 font-medium transition text-xs"
                   />
+                </div>
+
+                {/* WhatsApp Communication Consent Checkbox */}
+                <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="whatsappConsent"
+                    checked={whatsappConsent}
+                    onChange={(e) => setWhatsappConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                  />
+                  <label htmlFor="whatsappConsent" className="text-xs text-sky-950 font-medium leading-relaxed cursor-pointer">
+                    <strong>WhatsApp Pass Delivery Consent:</strong> I agree to receive my personalized Edu Familia admission QR card and official event updates on WhatsApp from official sender <strong>+91 83019 48964</strong>.
+                  </label>
                 </div>
 
                 {/* Submit Button */}

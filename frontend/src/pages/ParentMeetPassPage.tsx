@@ -46,12 +46,12 @@ export default function ParentMeetPassPage(): JSX.Element {
       });
   }, [token]);
 
-  // Download QR Code PNG
+  // Download Personalized Admission Card PNG
   const handleDownloadPNG = () => {
-    if (!qrDataUrl) return;
+    if (!token) return;
     const link = document.createElement('a');
-    link.href = qrDataUrl;
-    link.download = `QR_Pass_${passData?.registration?.registration_number || 'Edu_Familia'}.png`;
+    link.href = `/api/parent-meet/pass/${token}/card.png`;
+    link.download = `Edu_Familia_Pass_${passData?.registration?.registration_number || 'Card'}.png`;
     link.click();
   };
 
@@ -278,7 +278,7 @@ export default function ParentMeetPassPage(): JSX.Element {
             className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Save PNG</span>
+            <span>Download Card</span>
           </button>
 
           <button
@@ -300,7 +300,7 @@ export default function ParentMeetPassPage(): JSX.Element {
             className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition text-center cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
-            <span>WhatsApp</span>
+            <span>Forward Link</span>
           </a>
         </div>
 

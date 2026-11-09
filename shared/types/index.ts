@@ -164,7 +164,10 @@ export interface ParentMeetSettings {
   whatsapp_phone_number_id?: string;
   whatsapp_business_account_id?: string;
   whatsapp_access_token?: string;
+  whatsapp_sender_display_number?: string;
   whatsapp_template_name?: string;
+  whatsapp_template_language?: string;
+  whatsapp_api_version?: string;
   form_fields_config: FormFieldsConfig;
   event_programme: ProgrammeItem[];
   public_announcements: string;
@@ -188,9 +191,11 @@ export interface ParentRegistration {
   qr_token: string;
   qr_token_hash?: string;
   pass_status: 'active' | 'revoked' | 'cancelled';
-  whatsapp_status: 'pending' | 'sent' | 'delivered' | 'failed' | 'simulated' | 'not_configured';
+  whatsapp_status: 'pending' | 'image_generated' | 'image_uploaded' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'simulated' | 'not_configured';
   whatsapp_sent_at?: string | null;
   whatsapp_error?: string | null;
+  whatsapp_media_id?: string | null;
+  whatsapp_consent?: boolean;
   created_at: string;
   updated_at?: string;
 
@@ -210,6 +215,7 @@ export interface ParentRegistrationInput {
   student_class?: string;
   attendees_count?: number;
   additional_details?: string;
+  whatsapp_consent?: boolean;
   custom_fields?: Record<string, any>;
 }
 
@@ -301,10 +307,12 @@ export interface WhatsAppLog {
   id: string;
   registration_id: string;
   phone_number: string;
+  sender_number?: string;
   message_type: string;
   provider: string;
-  status: 'sent' | 'delivered' | 'failed' | 'simulated';
+  status: 'image_generated' | 'image_uploaded' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'simulated';
   provider_response_id?: string | null;
+  media_id?: string | null;
   error_message?: string | null;
   payload_snapshot?: any;
   sent_at: string;

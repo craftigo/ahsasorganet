@@ -99,6 +99,7 @@ export const parentMeetService = {
   async registerParent(input: ParentRegistrationInput): Promise<{
     registration: ParentRegistration;
     pass_url: string;
+    card_image_url?: string;
   }> {
     const res = await fetch('/api/parent-meet/register', {
       method: 'POST',
@@ -117,7 +118,8 @@ export const parentMeetService = {
 
     return {
       registration: data.registration,
-      pass_url: data.pass_url
+      pass_url: data.pass_url,
+      card_image_url: data.card_image_url
     };
   },
 

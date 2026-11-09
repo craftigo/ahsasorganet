@@ -13,8 +13,12 @@ import {
   DEFAULT_PARENT_MEET_SETTINGS,
   generateRegistrationNumber,
   generateSecureQRToken,
-  formatWhatsAppMessage
+  formatWhatsAppMessage,
+  normalizeWhatsAppNumber,
+  WHATSAPP_SENDER_DISPLAY_NUMBER,
+  WHATSAPP_SENDER_INTERNATIONAL
 } from '../../shared/data/parentMeetDefaults';
+import { generatePassCardPng, generatePassCardSvg } from '../lib/cardGenerator';
 
 export const parentMeetRouter = Router();
 
@@ -70,81 +74,220 @@ const inMemoryAuditLogs: any[] = [];
 const inMemoryWhatsAppLogs: any[] = [];
 
 /**
- * Real Meta Cloud API WhatsApp Sender
+ * Real Meta Cloud API WhatsApp Card Image Sender
+ * Dispatches FROM configured business sender: +91 83019 48964 (918301948964)
+ * Recipient is dynamically taken from the parent's registration (normalized)
+ * Attaches the personalized high-resolution pass card PNG image
  * Distinguishes truthfully between 'sent', 'simulated', and 'failed'
  */
-async function sendMetaWhatsAppMessage(
+async function sendMetaWhatsAppCardMessage(
   settings: ParentMeetSettings,
   recipientPhone: string,
   parentName: string,
   regNumber: string,
-  passUrl: string
+  qrToken: string,
+  studentName: string,
+  studentClass?: string,
+  attendeesCount?: number
 ): Promise<{
   status: 'sent' | 'simulated' | 'failed';
   provider_response_id: string | null;
+  media_id: string | null;
   error_message: string | null;
   payload: any;
 }> {
-  const messageText = formatWhatsAppMessage(parentName, regNumber, passUrl, settings.event_date, settings.venue);
-  const cleanPhone = recipientPhone.replace(/\D/g, '');
+  const normalizedRecipient = normalizeWhatsAppNumber(recipientPhone);
+  const productionBase = 'https://ahsasorganet.vercel.app';
+  const passUrl = `${productionBase}/event/pass/${qrToken}`;
+  const cardImageUrl = `${productionBase}/api/parent-meet/pass/${qrToken}/card.png`;
 
-  if (!settings.whatsapp_enabled || !settings.whatsapp_access_token || !settings.whatsapp_phone_number_id) {
+  const messageText = formatWhatsAppMessage(
+    parentName,
+    regNumber,
+    passUrl,
+    settings.event_date || '09 November 2026',
+    `${settings.venue || 'Darussalam Tharqiya Edu Village'}, ${settings.location || 'Koyilandy, Calicut'}`
+  );
+
+  // 1. Generate the personalized card PNG buffer
+  let pngBuffer: Buffer;
+  try {
+    pngBuffer = await generatePassCardPng({
+      registration_number: regNumber,
+      parent_name: parentName,
+      student_name: studentName,
+      student_class: studentClass,
+      attendees_count: attendeesCount || 1,
+      qr_token: qrToken,
+      event_name: settings.event_name,
+      event_subtitle: settings.event_subtitle,
+      event_date: settings.event_date,
+      event_day: settings.event_day,
+      venue: settings.venue,
+      location: settings.location,
+      expo_entered: false,
+      meeting_attended: false,
+      food_status: 'pending_meeting'
+    });
+  } catch (cardErr: any) {
+    console.error('[ParentMeet API] Card PNG generation failed:', cardErr);
     return {
-      status: 'simulated',
-      provider_response_id: `SIM_${Date.now()}`,
-      error_message: !settings.whatsapp_enabled
-        ? 'Simulated Mode: WhatsApp delivery toggle is disabled in event settings'
-        : 'Simulated Mode: Meta Cloud API access token or Phone Number ID not configured',
-      payload: { text: messageText }
+      status: 'failed',
+      provider_response_id: null,
+      media_id: null,
+      error_message: `Personalized card PNG generation error: ${cardErr.message || 'Unknown error'}`,
+      payload: { recipient: normalizedRecipient }
     };
   }
 
-  try {
-    const metaUrl = `https://graph.facebook.com/v19.0/${settings.whatsapp_phone_number_id}/messages`;
-    const bodyPayload = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: cleanPhone,
-      type: 'text',
-      text: {
-        preview_url: true,
-        body: messageText
+  // 2. Read Meta credentials from environment or settings
+  const token = process.env.WHATSAPP_ACCESS_TOKEN || settings.whatsapp_access_token;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID || settings.whatsapp_phone_number_id;
+  const senderDisplay = process.env.WHATSAPP_SENDER_DISPLAY_NUMBER || settings.whatsapp_sender_display_number || WHATSAPP_SENDER_DISPLAY_NUMBER;
+  const apiVersion = process.env.WHATSAPP_API_VERSION || settings.whatsapp_api_version || 'v19.0';
+  const templateName = process.env.WHATSAPP_TEMPLATE_NAME || settings.whatsapp_template_name || '';
+  const templateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || settings.whatsapp_template_language || 'en';
+
+  // 3. Transparent Simulation Check
+  if (!settings.whatsapp_enabled || !token || !phoneId) {
+    const missing: string[] = [];
+    if (!settings.whatsapp_enabled) missing.push('whatsapp_enabled=false in event settings');
+    if (!token) missing.push('WHATSAPP_ACCESS_TOKEN not set');
+    if (!phoneId) missing.push('WHATSAPP_PHONE_NUMBER_ID not set');
+
+    return {
+      status: 'simulated',
+      provider_response_id: `SIM_CARD_${Date.now()}`,
+      media_id: null,
+      error_message: `Simulated Mode: WhatsApp Business Cloud API delivery not live. Missing: [${missing.join(', ')}]. Official Sender: ${senderDisplay}. Generated PNG size: ${pngBuffer.length} bytes.`,
+      payload: {
+        sender: senderDisplay,
+        recipient: normalizedRecipient,
+        image_bytes: pngBuffer.length,
+        card_image_url: cardImageUrl,
+        pass_url: passUrl,
+        caption: messageText
       }
     };
+  }
 
-    const metaRes = await fetch(metaUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${settings.whatsapp_access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(bodyPayload)
-    });
+  // 4. Live Meta Cloud API Delivery
+  try {
+    let uploadedMediaId: string | null = null;
 
-    const resJson: any = await metaRes.json().catch(() => ({}));
+    // STEP A: Upload PNG image to WhatsApp Cloud API via POST /{PHONE_NUMBER_ID}/media
+    try {
+      const formData = new FormData();
+      formData.append('messaging_product', 'whatsapp');
+      formData.append('type', 'image/png');
+      const blob = new Blob([pngBuffer], { type: 'image/png' });
+      formData.append('file', blob, `Edu_Familia_Pass_${regNumber}.png`);
 
-    if (metaRes.ok && resJson.messages && resJson.messages[0]) {
-      return {
-        status: 'sent',
-        provider_response_id: resJson.messages[0].id || null,
-        error_message: null,
-        payload: bodyPayload
+      const uploadRes = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneId}/media`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const uploadJson: any = await uploadRes.json().catch(() => ({}));
+      if (uploadRes.ok && uploadJson.id) {
+        uploadedMediaId = uploadJson.id;
+      } else {
+        console.warn('[ParentMeet API] Meta media upload notice, fallback to direct image link:', uploadJson);
+      }
+    } catch (uploadErr) {
+      console.warn('[ParentMeet API] Error uploading media to Meta Cloud API, fallback to public URL:', uploadErr);
+    }
+
+    // STEP B: Send Image Message (Approved Utility Template or Direct Image Message)
+    const metaMessageUrl = `https://graph.facebook.com/${apiVersion}/${phoneId}/messages`;
+    let messageBody: any = null;
+
+    if (templateName) {
+      // Send approved WhatsApp Utility template with IMAGE header
+      messageBody = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: normalizedRecipient,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: templateLang },
+          components: [
+            {
+              type: 'header',
+              parameters: [
+                {
+                  type: 'image',
+                  image: uploadedMediaId ? { id: uploadedMediaId } : { link: cardImageUrl }
+                }
+              ]
+            },
+            {
+              type: 'body',
+              parameters: [
+                { type: 'text', text: parentName },
+                { type: 'text', text: regNumber },
+                { type: 'text', text: settings.event_name || 'EDU FAMILIA' },
+                { type: 'text', text: settings.event_date || '09 November 2026' },
+                { type: 'text', text: settings.venue || 'Darussalam Tharqiya Edu Village' }
+              ]
+            }
+          ]
+        }
       };
     } else {
-      const errMsg = resJson.error?.message || `Meta Cloud API HTTP error ${metaRes.status}`;
+      // Direct image message with caption
+      messageBody = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: normalizedRecipient,
+        type: 'image',
+        image: {
+          ...(uploadedMediaId ? { id: uploadedMediaId } : { link: cardImageUrl }),
+          caption: messageText
+        }
+      };
+    }
+
+    const metaRes = await fetch(metaMessageUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(messageBody)
+    });
+
+    const metaJson: any = await metaRes.json().catch(() => ({}));
+
+    if (metaRes.ok && metaJson.messages && metaJson.messages[0]) {
+      return {
+        status: 'sent',
+        provider_response_id: metaJson.messages[0].id || null,
+        media_id: uploadedMediaId,
+        error_message: null,
+        payload: messageBody
+      };
+    } else {
+      const errMsg = metaJson.error?.message || `Meta Cloud API HTTP error ${metaRes.status}`;
       return {
         status: 'failed',
         provider_response_id: null,
+        media_id: uploadedMediaId,
         error_message: errMsg,
-        payload: bodyPayload
+        payload: messageBody
       };
     }
   } catch (err: any) {
     return {
       status: 'failed',
       provider_response_id: null,
+      media_id: null,
       error_message: err.message || 'Network error communicating with Meta Cloud API',
-      payload: { text: messageText }
+      payload: { recipient: normalizedRecipient }
     };
   }
 }
@@ -281,7 +424,7 @@ parentMeetRouter.post('/register', async (req: Request, res: Response): Promise<
       return;
     }
 
-    const cleanWhatsapp = (input.whatsapp_number || '').replace(/\D/g, '');
+    const cleanWhatsapp = normalizeWhatsAppNumber(input.whatsapp_number);
     if (!cleanWhatsapp || cleanWhatsapp.length < 10) {
       res.status(400).json({ error: 'A valid WhatsApp phone number (minimum 10 digits) is required.' });
       return;
@@ -377,27 +520,32 @@ parentMeetRouter.post('/register', async (req: Request, res: Response): Promise<
     inMemoryFoodTokens.set(newRegistration.id, foodToken);
     supabaseServer.from('food_tokens').insert(foodToken).then(() => {}, () => {});
 
-    // 7. WhatsApp Delivery Workflow (Real Meta API or Transparent Simulation)
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5173';
-    const passUrl = `${protocol}://${host}/event/pass/${qrToken}`;
+    // 7. WhatsApp Delivery Workflow (Real Meta API Card Image or Transparent Simulation)
+    const productionBase = 'https://ahsasorganet.vercel.app';
+    const passUrl = `${productionBase}/event/pass/${qrToken}`;
+    const cardImageUrl = `${productionBase}/api/parent-meet/pass/${qrToken}/card.png`;
 
-    const waResult = await sendMetaWhatsAppMessage(
+    const waResult = await sendMetaWhatsAppCardMessage(
       settings,
       cleanWhatsapp,
       newRegistration.parent_name,
       regNumber,
-      passUrl
+      qrToken,
+      newRegistration.student_name,
+      newRegistration.student_class,
+      newRegistration.attendees_count
     );
 
     const waLog = {
       id: crypto.randomUUID(),
       registration_id: newRegistration.id,
       phone_number: cleanWhatsapp,
-      message_type: 'qr_pass',
+      sender_number: WHATSAPP_SENDER_DISPLAY_NUMBER,
+      message_type: 'qr_pass_card',
       provider: 'meta_cloud_api',
       status: waResult.status,
       provider_response_id: waResult.provider_response_id,
+      media_id: waResult.media_id,
       error_message: waResult.error_message,
       payload_snapshot: waResult.payload,
       sent_at: new Date().toISOString()
@@ -408,12 +556,15 @@ parentMeetRouter.post('/register', async (req: Request, res: Response): Promise<
     newRegistration.whatsapp_status = waResult.status;
     newRegistration.whatsapp_sent_at = waResult.status === 'sent' ? new Date().toISOString() : null;
     newRegistration.whatsapp_error = waResult.error_message;
+    newRegistration.whatsapp_media_id = waResult.media_id;
+    newRegistration.whatsapp_consent = input.whatsapp_consent !== false;
 
     res.status(201).json({
       success: true,
       message: 'Registration completed successfully!',
       registration: newRegistration,
-      pass_url: passUrl
+      pass_url: passUrl,
+      card_image_url: cardImageUrl
     });
   } catch (err: any) {
     console.error('[ParentMeet API] Registration error:', err);
@@ -529,6 +680,222 @@ parentMeetRouter.get('/pass/:token', async (req: Request, res: Response): Promis
 });
 
 // ============================================================================
+// 4B. PUBLIC: Render Personalized Admission Card Image (PNG)
+// GET /api/parent-meet/pass/:token/card.png
+// ============================================================================
+parentMeetRouter.get('/pass/:token/card.png', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+    let cleanToken = (token || '').trim();
+    if (cleanToken.includes('/event/pass/')) {
+      cleanToken = cleanToken.split('/event/pass/')[1].split(/[?#/]/)[0].trim();
+    }
+    const upperToken = cleanToken.toUpperCase();
+
+    let registration: ParentRegistration | null = null;
+    try {
+      const { data } = await supabaseServer
+        .from('parent_registrations')
+        .select('*')
+        .or(`qr_token.eq.${cleanToken},registration_number.eq.${upperToken}`)
+        .maybeSingle();
+      if (data) registration = data as ParentRegistration;
+    } catch {}
+
+    if (!registration) {
+      for (const reg of inMemoryRegistrations.values()) {
+        if (reg.qr_token === cleanToken || reg.registration_number === upperToken) {
+          registration = reg;
+          break;
+        }
+      }
+    }
+
+    if (!registration) {
+      res.status(404).send('Pass not found');
+      return;
+    }
+
+    const settings = await getActiveSettings();
+    const expoEntry = inMemoryExpoEntries.get(registration.id) || null;
+    const meetingAtt = inMemoryMeetingAttendance.get(registration.id) || null;
+    const foodToken = inMemoryFoodTokens.get(registration.id) || null;
+
+    const pngBuffer = await generatePassCardPng({
+      registration_number: registration.registration_number,
+      parent_name: registration.parent_name,
+      student_name: registration.student_name,
+      student_class: registration.student_class,
+      attendees_count: registration.attendees_count,
+      qr_token: registration.qr_token,
+      event_name: settings.event_name,
+      event_subtitle: settings.event_subtitle,
+      event_date: settings.event_date,
+      event_day: settings.event_day,
+      venue: settings.venue,
+      location: settings.location,
+      expo_entered: !!expoEntry,
+      meeting_attended: !!meetingAtt,
+      food_status: foodToken?.status || (meetingAtt ? 'eligible' : 'pending_meeting')
+    });
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `inline; filename="Edu_Familia_Pass_${registration.registration_number}.png"`);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(pngBuffer);
+  } catch (err: any) {
+    res.status(500).send('Error generating card image: ' + (err.message || 'Unknown error'));
+  }
+});
+
+// ============================================================================
+// 4C. PUBLIC: Render Personalized Admission Card (SVG)
+// GET /api/parent-meet/pass/:token/card.svg
+// ============================================================================
+parentMeetRouter.get('/pass/:token/card.svg', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+    let cleanToken = (token || '').trim();
+    if (cleanToken.includes('/event/pass/')) {
+      cleanToken = cleanToken.split('/event/pass/')[1].split(/[?#/]/)[0].trim();
+    }
+    const upperToken = cleanToken.toUpperCase();
+
+    let registration: ParentRegistration | null = null;
+    try {
+      const { data } = await supabaseServer
+        .from('parent_registrations')
+        .select('*')
+        .or(`qr_token.eq.${cleanToken},registration_number.eq.${upperToken}`)
+        .maybeSingle();
+      if (data) registration = data as ParentRegistration;
+    } catch {}
+
+    if (!registration) {
+      for (const reg of inMemoryRegistrations.values()) {
+        if (reg.qr_token === cleanToken || reg.registration_number === upperToken) {
+          registration = reg;
+          break;
+        }
+      }
+    }
+
+    if (!registration) {
+      res.status(404).send('Pass not found');
+      return;
+    }
+
+    const settings = await getActiveSettings();
+    const expoEntry = inMemoryExpoEntries.get(registration.id) || null;
+    const meetingAtt = inMemoryMeetingAttendance.get(registration.id) || null;
+    const foodToken = inMemoryFoodTokens.get(registration.id) || null;
+
+    const svg = await generatePassCardSvg({
+      registration_number: registration.registration_number,
+      parent_name: registration.parent_name,
+      student_name: registration.student_name,
+      student_class: registration.student_class,
+      attendees_count: registration.attendees_count,
+      qr_token: registration.qr_token,
+      event_name: settings.event_name,
+      event_subtitle: settings.event_subtitle,
+      event_date: settings.event_date,
+      event_day: settings.event_day,
+      venue: settings.venue,
+      location: settings.location,
+      expo_entered: !!expoEntry,
+      meeting_attended: !!meetingAtt,
+      food_status: foodToken?.status || (meetingAtt ? 'eligible' : 'pending_meeting')
+    });
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(svg);
+  } catch (err: any) {
+    res.status(500).send('Error generating card SVG: ' + (err.message || 'Unknown error'));
+  }
+});
+
+// ============================================================================
+// 4D. META WHATSAPP WEBHOOK: Verification
+// GET /api/parent-meet/whatsapp/webhook
+// ============================================================================
+parentMeetRouter.get('/whatsapp/webhook', (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  const expectedToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'ahsas_edu_familia_2026';
+
+  if (mode === 'subscribe' && token === expectedToken) {
+    res.status(200).send(challenge);
+  } else {
+    res.status(403).send('Verification token mismatch');
+  }
+});
+
+// ============================================================================
+// 4E. META WHATSAPP WEBHOOK: Delivery Status Callbacks
+// POST /api/parent-meet/whatsapp/webhook
+// ============================================================================
+parentMeetRouter.post('/whatsapp/webhook', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const body = req.body;
+    if (body.object === 'whatsapp_business_account' && body.entry) {
+      for (const entry of body.entry) {
+        for (const change of entry.changes || []) {
+          const value = change.value;
+          if (value?.statuses) {
+            for (const statusObj of value.statuses) {
+              const messageId = statusObj.id;
+              const deliveryStatus = statusObj.status; // 'sent' | 'delivered' | 'read' | 'failed'
+              const recipientId = statusObj.recipient_id;
+
+              for (const reg of inMemoryRegistrations.values()) {
+                const norm = normalizeWhatsAppNumber(reg.whatsapp_number);
+                if (norm === recipientId || reg.whatsapp_number === recipientId) {
+                  if (['sent', 'delivered', 'read', 'failed'].includes(deliveryStatus)) {
+                    reg.whatsapp_status = deliveryStatus as any;
+                    reg.updated_at = new Date().toISOString();
+                  }
+                  break;
+                }
+              }
+
+              try {
+                await supabaseServer
+                  .from('parent_registrations')
+                  .update({
+                    whatsapp_status: deliveryStatus,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('whatsapp_number', recipientId);
+              } catch {}
+
+              inMemoryWhatsAppLogs.unshift({
+                id: crypto.randomUUID(),
+                registration_id: 'webhook',
+                phone_number: recipientId,
+                sender_number: WHATSAPP_SENDER_DISPLAY_NUMBER,
+                message_type: 'status_callback',
+                provider: 'meta_cloud_api',
+                status: deliveryStatus,
+                provider_response_id: messageId,
+                payload_snapshot: statusObj,
+                sent_at: new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    }
+    res.status(200).send('EVENT_RECEIVED');
+  } catch (err: any) {
+    res.status(200).send('EVENT_RECEIVED');
+  }
+});
+
+// ============================================================================
 // 5. CRITICAL CORE: Scanner Verification & Atomic Recording
 // POST /api/parent-meet/scan/verify
 // ============================================================================
@@ -585,7 +952,13 @@ parentMeetRouter.post('/scan/verify', async (req: Request, res: Response): Promi
       let query = supabaseServer.from('parent_registrations').select('*');
       query = query.or(`qr_token.eq.${cleanToken},registration_number.eq.${cleanManual},whatsapp_number.eq.${cleanManual}`);
       const { data } = await query.maybeSingle();
-      if (data) registration = data as ParentRegistration;
+      if (data) {
+        registration = data as ParentRegistration;
+        const mem = inMemoryRegistrations.get(registration.id);
+        if (mem && mem.pass_status) {
+          registration.pass_status = mem.pass_status;
+        }
+      }
     } catch {}
 
     if (!registration) {
@@ -1287,26 +1660,31 @@ parentMeetRouter.post('/admin/registrations/:id/resend-whatsapp', requireAuth, r
     }
 
     const settings = await getActiveSettings();
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5173';
-    const passUrl = `${protocol}://${host}/event/pass/${reg.qr_token}`;
+    const productionBase = 'https://ahsasorganet.vercel.app';
+    const passUrl = `${productionBase}/event/pass/${reg.qr_token}`;
+    const cardImageUrl = `${productionBase}/api/parent-meet/pass/${reg.qr_token}/card.png`;
 
-    const waResult = await sendMetaWhatsAppMessage(
+    const waResult = await sendMetaWhatsAppCardMessage(
       settings,
       reg.whatsapp_number,
       reg.parent_name,
       reg.registration_number,
-      passUrl
+      reg.qr_token,
+      reg.student_name,
+      reg.student_class,
+      reg.attendees_count
     );
 
     const waLog = {
       id: crypto.randomUUID(),
       registration_id: reg.id,
-      phone_number: reg.whatsapp_number,
-      message_type: 'qr_pass_resend',
+      phone_number: normalizeWhatsAppNumber(reg.whatsapp_number),
+      sender_number: WHATSAPP_SENDER_DISPLAY_NUMBER,
+      message_type: 'qr_pass_card_resend',
       provider: 'meta_cloud_api',
       status: waResult.status,
       provider_response_id: waResult.provider_response_id,
+      media_id: waResult.media_id,
       error_message: waResult.error_message,
       payload_snapshot: waResult.payload,
       sent_at: new Date().toISOString()
@@ -1317,17 +1695,19 @@ parentMeetRouter.post('/admin/registrations/:id/resend-whatsapp', requireAuth, r
     reg.whatsapp_status = waResult.status;
     reg.whatsapp_sent_at = waResult.status === 'sent' ? new Date().toISOString() : null;
     reg.whatsapp_error = waResult.error_message;
+    reg.whatsapp_media_id = waResult.media_id;
 
     res.json({
       success: true,
       status: waResult.status,
       message:
         waResult.status === 'sent'
-          ? `WhatsApp pass successfully dispatched via Meta Cloud API to ${reg.parent_name} (${reg.whatsapp_number}).`
+          ? `WhatsApp pass card successfully dispatched via Meta Cloud API from ${WHATSAPP_SENDER_DISPLAY_NUMBER} to ${reg.parent_name} (${reg.whatsapp_number}).`
           : waResult.status === 'simulated'
-          ? `WhatsApp pass logged in Simulated Mode for ${reg.parent_name} (${reg.whatsapp_number}). Add Meta Cloud API credentials in Settings for live sending.`
+          ? `WhatsApp pass card generated and logged in Simulated Mode for ${reg.parent_name} (${reg.whatsapp_number}). Configured sender: ${WHATSAPP_SENDER_DISPLAY_NUMBER}. Add Meta Cloud API credentials in Settings for live sending.`
           : `WhatsApp dispatch failed: ${waResult.error_message}`,
-      pass_url: passUrl
+      pass_url: passUrl,
+      card_image_url: cardImageUrl
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to resend WhatsApp pass' });

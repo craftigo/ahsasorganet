@@ -7,6 +7,9 @@
 
 import { ParentMeetSettings, ProgrammeItem, FormFieldsConfig } from '../types';
 
+export const WHATSAPP_SENDER_DISPLAY_NUMBER = '+91 83019 48964';
+export const WHATSAPP_SENDER_INTERNATIONAL = '918301948964';
+
 export const DEFAULT_EVENT_PROGRAMME: ProgrammeItem[] = [
   { time: '08:30 AM', title: 'Registration & Welcome Reception', location: 'Main Entrance & Registration Desk' },
   { time: '09:00 AM', title: 'Edu Expo & Innovation Gallery Inauguration', location: 'Expo Pavilion' },
@@ -28,6 +31,31 @@ export const DEFAULT_FORM_FIELDS: FormFieldsConfig = {
   attendees_count: { enabled: true, required: true, label: 'Number of Attendees' },
   additional_details: { enabled: true, required: false, label: 'Special Requirements / Notes' }
 };
+
+/**
+ * Normalizes phone numbers to standard E.164 format without leading plus.
+ * E.g., '9404966115' -> '919404966115'
+ * '+91 9404966115' -> '919404966115'
+ * Prevents duplicate 91 country codes.
+ */
+export function normalizeWhatsAppNumber(rawPhone: string): string {
+  let digits = (rawPhone || '').replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length === 14 && digits.startsWith('9191')) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+
+  return digits;
+}
 
 export const DEFAULT_PARENT_MEET_SETTINGS: ParentMeetSettings = {
   id: 'default',
@@ -53,10 +81,13 @@ export const DEFAULT_PARENT_MEET_SETTINGS: ParentMeetSettings = {
   food_max_tokens_per_reg: 1,
   whatsapp_enabled: false,
   whatsapp_api_status: 'testing',
+  whatsapp_sender_display_number: WHATSAPP_SENDER_DISPLAY_NUMBER,
   whatsapp_phone_number_id: '',
   whatsapp_business_account_id: '',
   whatsapp_access_token: '',
   whatsapp_template_name: 'edu_familia_qr_pass',
+  whatsapp_template_language: 'en',
+  whatsapp_api_version: 'v19.0',
   form_fields_config: DEFAULT_FORM_FIELDS,
   event_programme: DEFAULT_EVENT_PROGRAMME,
   public_announcements:
@@ -92,22 +123,22 @@ export function formatWhatsAppMessage(
   regNumber: string,
   passUrl: string,
   eventDate: string = '09 November 2026',
-  venue: string = 'Darussalam Tharqiya Edu Village, Koyilandy'
+  venue: string = 'Darussalam Tharqiya Edu Village, Koyilandy, Calicut.'
 ): string {
   return (
-    `*Assalamu Alaikum!* ✨\n\n` +
-    `Dear *${parentName}*,\n\n` +
-    `Your registration for *EDU FAMILIA – THARQIYA FAMILY MEET* has been successfully completed.\n\n` +
-    `📋 *Registration ID:* ${regNumber}\n` +
-    `📅 *Date:* ${eventDate} (Monday)\n` +
-    `📍 *Venue:* ${venue}\n\n` +
-    `🎫 *Your Digital QR Pass:* \n${passUrl}\n\n` +
-    `⚠️ *Important Instructions:*\n` +
-    `• Please keep this personal QR pass ready upon arrival.\n` +
-    `• Required for: 1. Expo Entry, 2. Main Meeting Attendance, 3. Food Token Collection.\n` +
-    `• Note: Food counter access requires verified Main Meeting attendance.\n\n` +
-    `Thank you,\n` +
-    `*AHSAS – Anwarul Huda Students’ Association*`
+    `Assalamu Alaikum, ${parentName}!\n\n` +
+    `Your registration for EDU FAMILIA – THARQIYA FAMILY MEET has been successfully completed.\n\n` +
+    `Your personal admission QR pass is attached to this message.\n\n` +
+    `Registration ID: ${regNumber}\n\n` +
+    `Event Date: ${eventDate}\n` +
+    `Venue: ${venue}\n\n` +
+    `Please keep your QR pass ready when arriving at the event.\n\n` +
+    `The same personal QR code will be used for:\n\n` +
+    `1. Expo Entry\n` +
+    `2. Main Meeting Attendance\n` +
+    `3. Food Token Collection\n\n` +
+    `Digital Pass URL: ${passUrl}\n\n` +
+    `Thank you.\n` +
+    `AHSAS – Anwarul Huda Students' Association.`
   );
 }
-
