@@ -110,3 +110,4 @@ export function formatWhatsAppMessage(
     `*AHSAS – Anwarul Huda Students’ Association*`
   );
 }
+

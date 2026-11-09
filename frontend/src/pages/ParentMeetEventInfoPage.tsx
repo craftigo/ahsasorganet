@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import QRCode from 'qrcode';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Clock,
   MapPin,
   Building,
-  Download,
   Share2,
   Users,
   Utensils,
   ArrowRight,
   Home,
-  Info
+  QrCode,
+  Search,
+  CheckCircle2,
+  ShieldCheck
 } from 'lucide-react';
 import { parentMeetService } from '../services/parentMeetService';
 import { ParentMeetSettings } from '../../../shared/types';
@@ -20,26 +21,33 @@ import { DEFAULT_PARENT_MEET_SETTINGS } from '../../../shared/data/parentMeetDef
 
 export default function ParentMeetEventInfoPage(): JSX.Element {
   const [settings, setSettings] = useState<ParentMeetSettings>(DEFAULT_PARENT_MEET_SETTINGS);
-  const [eventQrUrl, setEventQrUrl] = useState<string>('');
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupError, setLookupError] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     parentMeetService.getSettings().then((s) => setSettings(s));
-
-    // Generate Public Event Info QR code
-    const currentUrl = typeof window !== 'undefined' ? `${window.location.origin}/event/info` : 'https://ahsasorganet.vercel.app/event/info';
-    QRCode.toDataURL(currentUrl, {
-      width: 320,
-      margin: 2,
-      color: { dark: '#0369a1', light: '#ffffff' }
-    }).then(setEventQrUrl);
   }, []);
 
-  const handleDownloadEventQR = () => {
-    if (!eventQrUrl) return;
-    const link = document.createElement('a');
-    link.href = eventQrUrl;
-    link.download = `Edu_Familia_Public_Event_QR.png`;
-    link.click();
+  const handleLookupPass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupQuery.trim()) return;
+    setLookupError('');
+    setLookupLoading(true);
+
+    try {
+      const data = await parentMeetService.getPassByToken(lookupQuery.trim());
+      if (data && data.registration) {
+        navigate(`/event/pass/${data.registration.qr_token || lookupQuery.trim()}`);
+      } else {
+        setLookupError('Personal QR Pass not found. Please check your Registration ID or register.');
+      }
+    } catch {
+      setLookupError('Personal pass not found for this ID. Please register first.');
+    } finally {
+      setLookupLoading(false);
+    }
   };
 
   return (
@@ -59,17 +67,18 @@ export default function ParentMeetEventInfoPage(): JSX.Element {
               Register Now
             </Link>
             <Link to="/event/display" className="text-sky-300 hover:text-white font-bold hidden sm:inline">
-              Large Screen
+              External Display Screen
             </Link>
           </div>
         </div>
       </div>
 
       {/* Hero Header */}
-      <section className="relative overflow-hidden pt-10 pb-12 px-4">
+      <section className="relative overflow-hidden pt-10 pb-10 px-4">
         <div className="max-w-4xl mx-auto text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 text-sky-900 shadow-sm border border-sky-200 text-xs font-bold uppercase tracking-wider">
-            <span>Official Event Information & Programme</span>
+            <ShieldCheck className="w-4 h-4 text-sky-600" />
+            <span>Single Personal QR Pass Architecture</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black text-sky-950 font-serif drop-shadow-sm">
@@ -79,7 +88,7 @@ export default function ParentMeetEventInfoPage(): JSX.Element {
             {settings.event_subtitle}
           </p>
 
-          <p className="text-xs sm:text-sm text-sky-900/90 max-w-2xl mx-auto italic bg-white/60 p-4 rounded-2xl border border-sky-200/60 shadow-xs">
+          <p className="text-xs sm:text-sm text-sky-900/90 max-w-2xl mx-auto italic bg-white/60 p-4 rounded-2xl border border-sky-200/60 shadow-xs leading-relaxed">
             "{settings.event_description}"
           </p>
 
@@ -116,7 +125,7 @@ export default function ParentMeetEventInfoPage(): JSX.Element {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {settings.event_programme.map((item, idx) => (
                 <div
                   key={idx}
@@ -143,9 +152,9 @@ export default function ParentMeetEventInfoPage(): JSX.Element {
               <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
                 <Building className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-sm text-gray-900">Edu Expo</h3>
+              <h3 className="font-extrabold text-sm text-gray-900">1. Edu Expo</h3>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Innovation stalls, student projects, Islamic heritage displays. One-time entry upon arrival.
+                Scan personal QR for one-time admission to innovation stalls and gallery.
               </p>
             </div>
 
@@ -153,9 +162,9 @@ export default function ParentMeetEventInfoPage(): JSX.Element {
               <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
                 <Users className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-sm text-gray-900">Main Auditorium</h3>
+              <h3 className="font-extrabold text-sm text-gray-900">2. Main Auditorium</h3>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Keynote parenting sessions, moral education discourse, and teacher-parent conclave.
+                Keynote parenting sessions. Attendance scan unlocks your family food token.
               </p>
             </div>
 
@@ -163,74 +172,100 @@ export default function ParentMeetEventInfoPage(): JSX.Element {
               <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
                 <Utensils className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-sm text-gray-900">Traditional Feast</h3>
+              <h3 className="font-extrabold text-sm text-gray-900">3. Traditional Feast</h3>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Delicious banquet served for registered families following Main Meeting attendance.
+                Scan your same personal QR to claim your meal following main meeting attendance.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Public Event Information QR */}
+        {/* Right Column: Single Personal QR System & Pass Lookup */}
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-6 shadow-xl border border-sky-100 text-center space-y-4">
+          {/* Single Pass Policy Box */}
+          <div className="bg-white rounded-3xl p-6 shadow-xl border border-sky-100 space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold uppercase tracking-wider">
-              <Info className="w-3.5 h-3.5" />
-              <span>Public Event QR</span>
+              <QrCode className="w-3.5 h-3.5" />
+              <span>One QR Pass Per Parent</span>
             </div>
 
-            <h3 className="text-lg font-black text-gray-900">Share Event Information</h3>
+            <h3 className="text-lg font-black text-gray-900">Single Personal QR Pass</h3>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Scan this QR to open the public event schedule, venue map, and announcements on any mobile phone.
+              Every registered parent receives <strong>ONE UNIQUE PERSONAL QR PASS</strong> containing an opaque security token. The same pass is used across all event checkpoints:
             </p>
 
-            <div className="p-4 bg-sky-50 rounded-2xl border border-sky-200 inline-block shadow-inner">
-              {eventQrUrl && <img src={eventQrUrl} alt="Public Event QR" className="w-48 h-48 rounded-xl object-contain" />}
-            </div>
+            <ul className="text-xs text-gray-600 space-y-2">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span><strong>Expo Entrance:</strong> Verifies one-time entry limit.</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
+                <span><strong>Auditorium:</strong> Records attendance & unlocks food.</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" />
+                <span><strong>Food Counter:</strong> Redeems single-use meal token.</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-sky-500 shrink-0" />
+                <span><strong>External Screen:</strong> Displays personalized statuses.</span>
+              </li>
+            </ul>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadEventQR}
-                className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Save Event QR</span>
-              </button>
-
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(
-                  `Check out EDU FAMILIA – THARQIYA FAMILY MEET on 09 Nov 2026: ${window.location.href}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center justify-center shadow-md"
-                title="Share Event"
-              >
-                <Share2 className="w-4 h-4" />
-              </a>
-            </div>
-
-            <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-400">
-              * Note: This is the public event details QR code. Individual parent admission passes are generated upon
-              registration.
+            <div className="pt-2 border-t border-gray-100">
+              <form onSubmit={handleLookupPass} className="space-y-2">
+                <label className="text-[11px] font-bold text-gray-700 block">
+                  Already Registered? Find Your QR Pass:
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Enter Registration ID (e.g. EF-2026-0001)..."
+                    value={lookupQuery}
+                    onChange={(e) => setLookupQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-900 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+                {lookupError && <p className="text-[11px] text-rose-600 font-bold">{lookupError}</p>}
+                <button
+                  type="submit"
+                  disabled={lookupLoading}
+                  className="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {lookupLoading ? 'Searching...' : 'Open My Personal QR Pass'}
+                </button>
+              </form>
             </div>
           </div>
 
-          {/* Quick Registration Call to Action Card */}
+          {/* Registration Call to Action */}
           <div className="p-6 rounded-3xl bg-gradient-to-br from-sky-600 to-sky-800 text-white shadow-xl space-y-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-200">Haven't Registered Yet?</span>
-            <h3 className="text-lg font-black">Register Now to Get Your Personal QR Pass</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-200">New Registration</span>
+            <h3 className="text-lg font-black">Register For Your Personal QR Pass</h3>
             <p className="text-xs text-sky-100 leading-relaxed">
-              Parents can easily register online and download their personal QR pass or receive it on WhatsApp.
+              Complete your online registration in 30 seconds to receive your digital QR pass instantly on your mobile and via WhatsApp.
             </p>
             <Link
               to="/event/edu-familia"
               className="inline-flex items-center gap-2 w-full justify-center py-3 rounded-xl bg-white text-sky-900 font-extrabold text-xs shadow-md hover:bg-sky-50 transition"
             >
-              <span>Go to Registration Page</span>
+              <span>Fill Registration Form</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Assalamu Alaikum! Registrations are open for EDU FAMILIA – THARQIYA FAMILY MEET on Monday, 09 Nov 2026 at Darussalam Tharqiya Edu Village, Koyilandy. Register to get your personal QR Pass: ${typeof window !== 'undefined' ? window.location.origin : ''}/event/edu-familia`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 w-full justify-center py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share Event with Parents on WhatsApp</span>
+            </a>
           </div>
         </div>
       </main>

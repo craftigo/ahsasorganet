@@ -265,3 +265,4 @@ GRANT ALL ON TABLE public.scan_logs TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.audit_logs TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.whatsapp_logs TO anon, authenticated, service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+

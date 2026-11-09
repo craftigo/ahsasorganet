@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Utensils,
@@ -20,6 +20,33 @@ export default function FoodScannerPage(): JSX.Element {
   const [manualInput, setManualInput] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [stats, setStats] = useState<{ redeemed: number; denied: number }>({ redeemed: 0, denied: 0 });
+
+  // Support USB / Bluetooth handheld 2D QR scanners
+  useEffect(() => {
+    let buffer = '';
+    let lastKeyTime = 0;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      const now = Date.now();
+      if (now - lastKeyTime > 150) {
+        buffer = '';
+      }
+      lastKeyTime = now;
+
+      if (e.key === 'Enter') {
+        if (buffer.trim().length >= 4) {
+          processScan(buffer.trim());
+          buffer = '';
+        }
+      } else if (e.key.length === 1) {
+        buffer += e.key;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isProcessing]);
 
   const processScan = async (qrOrManual: string, isManual = false) => {
     if (isProcessing || !qrOrManual.trim()) return;

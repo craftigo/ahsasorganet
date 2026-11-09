@@ -162,7 +162,7 @@ export default function ParentMeetPassPage(): JSX.Element {
                 {registration.registration_number}
               </span>
               <p className="text-[10px] text-gray-500 mt-1 font-semibold">
-                Scan this single pass at Expo, Main Meeting & Food Counter
+                Single Personal Pass: 1) Expo Entry • 2) Main Meeting • 3) Food Token • 4) Kiosk Screen
               </p>
             </div>
           </div>

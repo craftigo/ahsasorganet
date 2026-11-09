@@ -342,14 +342,20 @@ parentMeetRouter.get('/pass/:token', async (req: Request, res: Response): Promis
       return;
     }
 
+    let cleanToken = (token || '').trim();
+    if (cleanToken.includes('/event/pass/')) {
+      cleanToken = cleanToken.split('/event/pass/')[1].split(/[?#/]/)[0].trim();
+    }
+    const upperToken = cleanToken.toUpperCase();
+
     let registration: ParentRegistration | null = null;
 
-    // 1. Search in Supabase
+    // 1. Search in Supabase by qr_token OR registration_number
     try {
       const { data } = await supabaseServer
         .from('parent_registrations')
         .select('*')
-        .eq('qr_token', token)
+        .or(`qr_token.eq.${cleanToken},registration_number.eq.${upperToken}`)
         .maybeSingle();
       if (data) registration = data as ParentRegistration;
     } catch {}
@@ -357,7 +363,7 @@ parentMeetRouter.get('/pass/:token', async (req: Request, res: Response): Promis
     // 2. Search in memory
     if (!registration) {
       for (const reg of inMemoryRegistrations.values()) {
-        if (reg.qr_token === token) {
+        if (reg.qr_token === cleanToken || reg.registration_number === upperToken) {
           registration = reg;
           break;
         }
@@ -365,7 +371,7 @@ parentMeetRouter.get('/pass/:token', async (req: Request, res: Response): Promis
     }
 
     if (!registration) {
-      res.status(404).json({ error: 'QR Pass not found. Please verify your token.' });
+      res.status(404).json({ error: 'Personal QR Pass not found. Please verify your token.' });
       return;
     }
 
@@ -387,27 +393,33 @@ parentMeetRouter.get('/pass/:token', async (req: Request, res: Response): Promis
 
     const settings = await getActiveSettings();
 
+    // Privacy Guard: Display only necessary personal info; mask contact numbers; never expose sensitive data on unauthenticated URLs
+    const maskedPhone = registration.whatsapp_number
+      ? `${registration.whatsapp_number.slice(0, 3)}••••••${registration.whatsapp_number.slice(-2)}`
+      : '';
+
     res.json({
       success: true,
       registration: {
         id: registration.id,
         registration_number: registration.registration_number,
         parent_name: registration.parent_name,
-        whatsapp_number: registration.whatsapp_number,
+        whatsapp_number: maskedPhone,
         student_name: registration.student_name,
         student_class: registration.student_class,
         attendees_count: registration.attendees_count,
-        address: registration.address,
         pass_status: registration.pass_status,
         created_at: registration.created_at
       },
       event: {
         name: settings.event_name,
         subtitle: settings.event_subtitle,
+        description: settings.event_description,
         date: settings.event_date,
         day: settings.event_day,
         venue: settings.venue,
-        location: settings.location
+        location: settings.location,
+        programme: settings.event_programme
       },
       statuses: {
         expo_entered: !!expoEntry,
@@ -459,8 +471,12 @@ parentMeetRouter.post('/scan/verify', async (req: Request, res: Response): Promi
       return;
     }
 
-    const cleanToken = typeof qr_token === 'string' ? qr_token.trim() : '';
-    const cleanManual = typeof manual_id === 'string' ? manual_id.trim().toUpperCase() : '';
+    let rawInput = (qr_token || manual_id || '').trim();
+    if (rawInput.includes('/event/pass/')) {
+      rawInput = rawInput.split('/event/pass/')[1].split(/[?#/]/)[0].trim();
+    }
+    const cleanToken = rawInput;
+    const cleanManual = rawInput.toUpperCase();
 
     if (!cleanToken && !cleanManual) {
       res.status(400).json({
@@ -476,22 +492,17 @@ parentMeetRouter.post('/scan/verify', async (req: Request, res: Response): Promi
 
     try {
       let query = supabaseServer.from('parent_registrations').select('*');
-      if (cleanToken) {
-        query = query.eq('qr_token', cleanToken);
-      } else {
-        query = query.or(`registration_number.eq.${cleanManual},whatsapp_number.eq.${cleanManual}`);
-      }
+      query = query.or(`qr_token.eq.${cleanToken},registration_number.eq.${cleanManual},whatsapp_number.eq.${cleanManual}`);
       const { data } = await query.maybeSingle();
       if (data) registration = data as ParentRegistration;
     } catch {}
 
     if (!registration) {
       for (const reg of inMemoryRegistrations.values()) {
-        if (cleanToken && reg.qr_token === cleanToken) {
-          registration = reg;
-          break;
-        }
-        if (cleanManual && (reg.registration_number === cleanManual || reg.whatsapp_number === cleanManual)) {
+        if (
+          (cleanToken && reg.qr_token === cleanToken) ||
+          (cleanManual && (reg.registration_number === cleanManual || reg.whatsapp_number === cleanManual))
+        ) {
           registration = reg;
           break;
         }

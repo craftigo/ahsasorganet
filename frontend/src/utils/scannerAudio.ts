@@ -80,3 +80,4 @@ class ScannerFeedback {
 }
 
 export const scannerAudio = new ScannerFeedback();
+
