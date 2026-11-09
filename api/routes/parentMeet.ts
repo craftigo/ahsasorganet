@@ -20,7 +20,7 @@ export const parentMeetRouter = Router();
 
 // In-memory fallback cache to ensure 100% operational uptime if Supabase table is pending migration
 let cachedSettings: ParentMeetSettings = { ...DEFAULT_PARENT_MEET_SETTINGS };
-const inMemoryRegistrations: Map<string, ParentRegistration> = new Map();
+export const inMemoryRegistrations: Map<string, ParentRegistration> = new Map();
 const inMemoryExpoEntries: Map<string, any> = new Map();
 const inMemoryMeetingAttendance: Map<string, any> = new Map();
 const inMemoryFoodTokens: Map<string, any> = new Map();
@@ -68,6 +68,86 @@ const inMemoryStations: Map<string, ScannerStation> = new Map([
 const inMemoryScanLogs: any[] = [];
 const inMemoryAuditLogs: any[] = [];
 const inMemoryWhatsAppLogs: any[] = [];
+
+/**
+ * Real Meta Cloud API WhatsApp Sender
+ * Distinguishes truthfully between 'sent', 'simulated', and 'failed'
+ */
+async function sendMetaWhatsAppMessage(
+  settings: ParentMeetSettings,
+  recipientPhone: string,
+  parentName: string,
+  regNumber: string,
+  passUrl: string
+): Promise<{
+  status: 'sent' | 'simulated' | 'failed';
+  provider_response_id: string | null;
+  error_message: string | null;
+  payload: any;
+}> {
+  const messageText = formatWhatsAppMessage(parentName, regNumber, passUrl, settings.event_date, settings.venue);
+  const cleanPhone = recipientPhone.replace(/\D/g, '');
+
+  if (!settings.whatsapp_enabled || !settings.whatsapp_access_token || !settings.whatsapp_phone_number_id) {
+    return {
+      status: 'simulated',
+      provider_response_id: `SIM_${Date.now()}`,
+      error_message: !settings.whatsapp_enabled
+        ? 'Simulated Mode: WhatsApp delivery toggle is disabled in event settings'
+        : 'Simulated Mode: Meta Cloud API access token or Phone Number ID not configured',
+      payload: { text: messageText }
+    };
+  }
+
+  try {
+    const metaUrl = `https://graph.facebook.com/v19.0/${settings.whatsapp_phone_number_id}/messages`;
+    const bodyPayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: cleanPhone,
+      type: 'text',
+      text: {
+        preview_url: true,
+        body: messageText
+      }
+    };
+
+    const metaRes = await fetch(metaUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${settings.whatsapp_access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(bodyPayload)
+    });
+
+    const resJson: any = await metaRes.json().catch(() => ({}));
+
+    if (metaRes.ok && resJson.messages && resJson.messages[0]) {
+      return {
+        status: 'sent',
+        provider_response_id: resJson.messages[0].id || null,
+        error_message: null,
+        payload: bodyPayload
+      };
+    } else {
+      const errMsg = resJson.error?.message || `Meta Cloud API HTTP error ${metaRes.status}`;
+      return {
+        status: 'failed',
+        provider_response_id: null,
+        error_message: errMsg,
+        payload: bodyPayload
+      };
+    }
+  } catch (err: any) {
+    return {
+      status: 'failed',
+      provider_response_id: null,
+      error_message: err.message || 'Network error communicating with Meta Cloud API',
+      payload: { text: messageText }
+    };
+  }
+}
 
 // ============================================================================
 // HELPER: Fetch or Sync Settings
@@ -297,10 +377,18 @@ parentMeetRouter.post('/register', async (req: Request, res: Response): Promise<
     inMemoryFoodTokens.set(newRegistration.id, foodToken);
     supabaseServer.from('food_tokens').insert(foodToken).then(() => {}, () => {});
 
-    // 7. WhatsApp Delivery Workflow
+    // 7. WhatsApp Delivery Workflow (Real Meta API or Transparent Simulation)
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5173';
     const passUrl = `${protocol}://${host}/event/pass/${qrToken}`;
+
+    const waResult = await sendMetaWhatsAppMessage(
+      settings,
+      cleanWhatsapp,
+      newRegistration.parent_name,
+      regNumber,
+      passUrl
+    );
 
     const waLog = {
       id: crypto.randomUUID(),
@@ -308,15 +396,18 @@ parentMeetRouter.post('/register', async (req: Request, res: Response): Promise<
       phone_number: cleanWhatsapp,
       message_type: 'qr_pass',
       provider: 'meta_cloud_api',
-      status: settings.whatsapp_enabled ? 'simulated' : 'not_configured',
-      error_message: settings.whatsapp_enabled ? null : 'WhatsApp API provider not yet configured with production credentials',
-      payload_snapshot: {
-        text: formatWhatsAppMessage(newRegistration.parent_name, regNumber, passUrl, settings.event_date, settings.venue)
-      },
+      status: waResult.status,
+      provider_response_id: waResult.provider_response_id,
+      error_message: waResult.error_message,
+      payload_snapshot: waResult.payload,
       sent_at: new Date().toISOString()
     };
     inMemoryWhatsAppLogs.unshift(waLog);
     supabaseServer.from('whatsapp_logs').insert(waLog).then(() => {}, () => {});
+
+    newRegistration.whatsapp_status = waResult.status;
+    newRegistration.whatsapp_sent_at = waResult.status === 'sent' ? new Date().toISOString() : null;
+    newRegistration.whatsapp_error = waResult.error_message;
 
     res.status(201).json({
       success: true,
@@ -1200,28 +1291,42 @@ parentMeetRouter.post('/admin/registrations/:id/resend-whatsapp', requireAuth, r
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5173';
     const passUrl = `${protocol}://${host}/event/pass/${reg.qr_token}`;
 
+    const waResult = await sendMetaWhatsAppMessage(
+      settings,
+      reg.whatsapp_number,
+      reg.parent_name,
+      reg.registration_number,
+      passUrl
+    );
+
     const waLog = {
       id: crypto.randomUUID(),
       registration_id: reg.id,
       phone_number: reg.whatsapp_number,
       message_type: 'qr_pass_resend',
       provider: 'meta_cloud_api',
-      status: settings.whatsapp_enabled ? 'sent' : 'simulated',
-      error_message: settings.whatsapp_enabled ? null : 'Simulated resend (WhatsApp credentials not configured)',
-      payload_snapshot: {
-        text: formatWhatsAppMessage(reg.parent_name, reg.registration_number, passUrl, settings.event_date, settings.venue)
-      },
+      status: waResult.status,
+      provider_response_id: waResult.provider_response_id,
+      error_message: waResult.error_message,
+      payload_snapshot: waResult.payload,
       sent_at: new Date().toISOString()
     };
     inMemoryWhatsAppLogs.unshift(waLog);
     supabaseServer.from('whatsapp_logs').insert(waLog).then(() => {}, () => {});
 
-    reg.whatsapp_status = settings.whatsapp_enabled ? 'sent' : 'not_configured';
-    reg.whatsapp_sent_at = new Date().toISOString();
+    reg.whatsapp_status = waResult.status;
+    reg.whatsapp_sent_at = waResult.status === 'sent' ? new Date().toISOString() : null;
+    reg.whatsapp_error = waResult.error_message;
 
     res.json({
       success: true,
-      message: `WhatsApp pass resend initiated for ${reg.parent_name} (${reg.whatsapp_number}).`,
+      status: waResult.status,
+      message:
+        waResult.status === 'sent'
+          ? `WhatsApp pass successfully dispatched via Meta Cloud API to ${reg.parent_name} (${reg.whatsapp_number}).`
+          : waResult.status === 'simulated'
+          ? `WhatsApp pass logged in Simulated Mode for ${reg.parent_name} (${reg.whatsapp_number}). Add Meta Cloud API credentials in Settings for live sending.`
+          : `WhatsApp dispatch failed: ${waResult.error_message}`,
       pass_url: passUrl
     });
   } catch (err: any) {
@@ -1266,6 +1371,18 @@ parentMeetRouter.post('/admin/override', requireAuth, requireAdmin, async (req: 
           .from('food_tokens')
           .update({ status: 'eligible', tokens_redeemed: 0, redeemed_at: null })
           .eq('registration_id', registration_id);
+      } catch {}
+    } else if (action_type === 'revoke_pass') {
+      const reg = inMemoryRegistrations.get(registration_id);
+      if (reg) reg.pass_status = 'revoked';
+      try {
+        await supabaseServer.from('parent_registrations').update({ pass_status: 'revoked' }).eq('id', registration_id);
+      } catch {}
+    } else if (action_type === 'activate_pass') {
+      const reg = inMemoryRegistrations.get(registration_id);
+      if (reg) reg.pass_status = 'active';
+      try {
+        await supabaseServer.from('parent_registrations').update({ pass_status: 'active' }).eq('id', registration_id);
       } catch {}
     } else {
       res.status(400).json({ error: 'Unknown override action type' });

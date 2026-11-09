@@ -188,7 +188,7 @@ export interface ParentRegistration {
   qr_token: string;
   qr_token_hash?: string;
   pass_status: 'active' | 'revoked' | 'cancelled';
-  whatsapp_status: 'pending' | 'sent' | 'delivered' | 'failed' | 'not_configured';
+  whatsapp_status: 'pending' | 'sent' | 'delivered' | 'failed' | 'simulated' | 'not_configured';
   whatsapp_sent_at?: string | null;
   whatsapp_error?: string | null;
   created_at: string;

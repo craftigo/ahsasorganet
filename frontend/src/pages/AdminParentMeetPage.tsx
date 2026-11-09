@@ -18,8 +18,10 @@ import {
   X,
   Eye,
   Radio,
-  ArrowUpRight
+  ArrowUpRight,
+  AlertTriangle
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { parentMeetService } from '../services/parentMeetService';
 import {
   ParentMeetSettings,
@@ -77,6 +79,7 @@ export default function AdminParentMeetPage(): JSX.Element {
   const [foodFilter, setFoodFilter] = useState<'all' | 'redeemed' | 'eligible' | 'pending_meeting'>('all');
 
   // Modals
+  const [dbPending, setDbPending] = useState(false);
   const [manualAddModalOpen, setManualAddModalOpen] = useState(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [overrideAction, setOverrideAction] = useState<'expo_reset' | 'attendance_reset' | 'food_reset'>('expo_reset');
@@ -114,6 +117,14 @@ export default function AdminParentMeetPage(): JSX.Element {
       if (st) setStats(st);
       setStations(sc);
       setLogs(l);
+
+      // Verify remote Supabase table presence
+      try {
+        const { error: sbErr } = await supabase.from('parent_registrations').select('id').limit(1);
+        setDbPending(!!sbErr && (sbErr.code === 'PGRST205' || sbErr.code === '42P01'));
+      } catch {
+        setDbPending(true);
+      }
     } catch (err: any) {
       console.error('Error loading parent meet admin data:', err);
     } finally {
@@ -343,6 +354,32 @@ export default function AdminParentMeetPage(): JSX.Element {
           </Link>
         </div>
       </div>
+
+      {/* Supabase Production Database Pending Notice */}
+      {dbPending && (
+        <div className="p-5 rounded-3xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-950 text-xs sm:text-sm font-medium flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-black text-amber-900 block text-sm">
+                Supabase Database Setup Pending (Action Required in Supabase Dashboard)
+              </strong>
+              <p className="text-amber-800 text-xs mt-1 leading-relaxed">
+                The database tables for Parent Meet Management have not yet been executed in your remote Supabase project. To persist registrations, entry logs, and food token redemptions across all devices in real-time, execute <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">supabase/migrations/20261109_parent_meet_management.sql</code> in your <strong>Supabase SQL Editor</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              alert('Please open the file supabase/migrations/20261109_parent_meet_management.sql, copy its contents, and run it in your Supabase project (SQL Editor).');
+            }}
+            className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shrink-0 shadow-md transition cursor-pointer"
+          >
+            View SQL Instructions
+          </button>
+        </div>
+      )}
 
       {/* Global Notification Banner */}
       {notice && (
@@ -1173,17 +1210,27 @@ export default function AdminParentMeetPage(): JSX.Element {
                     <span className="font-bold text-gray-900 font-mono">{w.phone_number}</span>
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       Type: {w.message_type} • Provider: {w.provider}
+                      {w.provider_response_id && ` • ID: ${w.provider_response_id}`}
                     </p>
+                    {w.error_message && (
+                      <p className="text-[10px] text-amber-700 font-medium mt-0.5 italic">
+                        {w.error_message}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <span
                       className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
-                        w.status === 'sent' || w.status === 'simulated'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-700'
+                        w.status === 'delivered'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : w.status === 'sent'
+                          ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                          : w.status === 'simulated'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-rose-100 text-rose-800 border border-rose-300'
                       }`}
                     >
-                      {w.status.toUpperCase()}
+                      {w.status === 'simulated' ? 'SIMULATED / TEST' : w.status.toUpperCase()}
                     </span>
                     <span className="text-[10px] text-gray-400 font-mono">
                       {new Date(w.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
