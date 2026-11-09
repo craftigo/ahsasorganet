@@ -17,11 +17,19 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import QuizPage from './pages/QuizPage';
+import ParentMeetRegistrationPage from './pages/ParentMeetRegistrationPage';
+import ParentMeetPassPage from './pages/ParentMeetPassPage';
+import ParentMeetEventInfoPage from './pages/ParentMeetEventInfoPage';
+import ParentMeetDisplayPage from './pages/ParentMeetDisplayPage';
+import ExpoScannerPage from './pages/scanners/ExpoScannerPage';
+import MeetingScannerPage from './pages/scanners/MeetingScannerPage';
+import FoodScannerPage from './pages/scanners/FoodScannerPage';
 
 // Protected Pages
 import { UnitDashboardPage } from './pages/UnitDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminQuizSubmissionsPage } from './pages/AdminQuizSubmissionsPage';
+import AdminParentMeetPage from './pages/AdminParentMeetPage';
 
 export default function App(): JSX.Element {
   return (
@@ -29,10 +37,20 @@ export default function App(): JSX.Element {
       <AuthProvider>
         <SettingsProvider>
           <Routes>
+            {/* Standalone Display & Scanner Screens (No outer navbar/footer wrappers) */}
+            <Route path="/event/display" element={<ParentMeetDisplayPage />} />
+            <Route path="/scanner/expo" element={<ExpoScannerPage />} />
+            <Route path="/scanner/meeting" element={<MeetingScannerPage />} />
+            <Route path="/scanner/food" element={<FoodScannerPage />} />
+            <Route path="/event/pass/:token" element={<ParentMeetPassPage />} />
+
             <Route path="/" element={<MainLayout />}>
               {/* Public Routes */}
               <Route index element={<HomePage />} />
               <Route path="quiz" element={<QuizPage />} />
+              <Route path="event/edu-familia" element={<ParentMeetRegistrationPage />} />
+              <Route path="event/register" element={<ParentMeetRegistrationPage />} />
+              <Route path="event/info" element={<ParentMeetEventInfoPage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="fund-collection" element={<FundCollectionPage />} />
               <Route path="committees" element={<CommitteesPage />} />
@@ -68,6 +86,14 @@ export default function App(): JSX.Element {
                 element={
                   <ProtectedRoute requireAdmin>
                     <AdminQuizSubmissionsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/parent-meet"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminParentMeetPage />
                   </ProtectedRoute>
                 }
               />

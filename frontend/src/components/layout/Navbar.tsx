@@ -78,6 +78,17 @@ export default function Navbar() {
             >
               COMMITTEE
             </Link>
+            <Link
+              to="/event/edu-familia"
+              className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
+                location.pathname.startsWith('/event')
+                  ? 'text-white bg-sky-600 font-extrabold shadow-sm'
+                  : 'text-sky-300 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <span>EDU FAMILIA</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+            </Link>
             {showPrograms && (
               <Link
                 to="/programs"
@@ -203,6 +214,16 @@ export default function Navbar() {
             className="block hover:bg-maroon px-4 py-2.5 rounded-xl text-sm font-semibold transition"
           >
             COMMITTEE
+          </Link>
+          <Link
+            to="/event/edu-familia"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block bg-sky-900/60 text-sky-200 hover:bg-sky-800 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-between"
+          >
+            <span>EDU FAMILIA (Parent Meet)</span>
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-sky-400 text-sky-950">
+              09 Nov
+            </span>
           </Link>
           {showPrograms && (
             <Link

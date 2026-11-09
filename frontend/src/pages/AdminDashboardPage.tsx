@@ -18,7 +18,8 @@ import {
   Building,
   ExternalLink,
   Trophy,
-  ArrowRight
+  ArrowRight,
+  Users
 } from 'lucide-react';
 
 const MASTER_ADMINS = ['ahsaslab@gmail.com', 'mmmed8833@gmail.com'];
@@ -816,7 +817,14 @@ export const AdminDashboardPage: React.FC = () => {
             Review activity submissions, assign scores, coordinate live support, and configure system rules.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin/parent-meet"
+            className="px-4 py-2 bg-gradient-to-r from-sky-600 to-sky-700 hover:from-sky-700 hover:to-sky-800 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5"
+          >
+            <Users className="w-3.5 h-3.5 text-sky-200" />
+            <span>Parent Meet Management</span>
+          </Link>
           <Link
             to="/admin/quiz-submissions"
             className="px-4 py-2 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition shadow-md flex items-center gap-1.5"
@@ -834,6 +842,36 @@ export const AdminDashboardPage: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
             Master Admin Session
           </span>
+        </div>
+      </div>
+
+      {/* Parent Meet Management Shortcut Card */}
+      <div className="mb-4 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-sky-950 via-sky-900 to-slate-900 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-sky-400/30 shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-sky-600/40 border border-sky-400/40 flex items-center justify-center text-sky-200 shrink-0 shadow-md">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black">Edu Familia – Tharqiya Family Meet</h3>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-400 text-sky-950 uppercase">
+                09 Nov 2026
+              </span>
+            </div>
+            <p className="text-xs text-sky-200/90 mt-0.5 max-w-2xl leading-relaxed">
+              Complete event operations suite: Parent Registrations, QR Passes, WhatsApp Auto-Delivery, Expo Gate Scanner,
+              Auditorium Attendance, and Attendance-Dependent Food Tokens.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+          <Link
+            to="/admin/parent-meet"
+            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-slate-950 transition shadow-lg flex items-center justify-center gap-1.5"
+          >
+            <span>Open Parent Meet Control</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
 

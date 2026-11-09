@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import { healthRouter } from './routes/health';
 import { quizRouter } from './routes/quiz';
+import { parentMeetRouter } from './routes/parentMeet';
 import { errorHandler } from './middleware/errorMiddleware';
 
 const app: Express = express();
@@ -28,6 +29,7 @@ app.use((req: Request, res: Response, next) => {
 // Mount Routes
 app.use('/api/health', healthRouter);
 app.use('/api/quiz', quizRouter);
+app.use('/api/parent-meet', parentMeetRouter);
 
 // Centralized error handler
 app.use(errorHandler);
