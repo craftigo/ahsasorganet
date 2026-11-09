@@ -262,6 +262,20 @@ export const parentMeetService = {
   },
 
   /**
+   * Admin: Delete Registration
+   */
+  async deleteRegistration(id: string): Promise<string> {
+    const session = (await supabase.auth.getSession()).data.session;
+    const res = await fetch(`/api/parent-meet/admin/registrations/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session?.access_token || ''}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete registration');
+    return data.message || 'Registration deleted successfully';
+  },
+
+  /**
    * Admin: Override Action (Expo Reset, Attendance Correction, Food Reset)
    */
   async performOverride(payload: {

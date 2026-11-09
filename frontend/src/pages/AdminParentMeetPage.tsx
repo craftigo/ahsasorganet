@@ -19,7 +19,8 @@ import {
   Eye,
   Radio,
   ArrowUpRight,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { parentMeetService } from '../services/parentMeetService';
@@ -31,7 +32,10 @@ import {
   AuditLog,
   WhatsAppLog
 } from '../../../shared/types';
-import { DEFAULT_PARENT_MEET_SETTINGS } from '../../../shared/data/parentMeetDefaults';
+import {
+  DEFAULT_PARENT_MEET_SETTINGS,
+  buildParentWhatsAppShareUrl
+} from '../../../shared/data/parentMeetDefaults';
 
 type AdminTab =
   | 'overview'
@@ -86,6 +90,9 @@ export default function AdminParentMeetPage(): JSX.Element {
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideRegId, setOverrideRegId] = useState('');
   const [qrModalUrl, setQrModalUrl] = useState<string>('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingReg, setDeletingReg] = useState<ParentRegistration | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Manual Add Form State
   const [newParentName, setNewParentName] = useState('');
@@ -209,14 +216,44 @@ export default function AdminParentMeetPage(): JSX.Element {
     }
   };
 
-  // Resend WhatsApp
-  const handleResendWhatsApp = async (id: string) => {
+  // Direct Device WhatsApp Sender (Opens active WhatsApp on admin's device directly to parent's number)
+  const handleOpenWhatsAppFromDevice = (reg: ParentRegistration) => {
+    const baseUrl = window.location.origin.includes('localhost')
+      ? 'https://ahsasorganet.vercel.app'
+      : window.location.origin;
+
+    const waUrl = buildParentWhatsAppShareUrl(
+      reg.whatsapp_number,
+      reg.parent_name,
+      reg.registration_number,
+      reg.qr_token,
+      reg.student_name,
+      baseUrl
+    );
+
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    showNotification(`Opened WhatsApp chat for ${reg.parent_name} (${reg.whatsapp_number})`);
+  };
+
+  // Delete Registration Confirmation
+  const openDeleteConfirm = (reg: ParentRegistration) => {
+    setDeletingReg(reg);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingReg) return;
+    setIsDeleting(true);
     try {
-      const msg = await parentMeetService.resendWhatsApp(id);
+      const msg = await parentMeetService.deleteRegistration(deletingReg.id);
       showNotification(msg);
+      setDeleteModalOpen(false);
+      setDeletingReg(null);
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to resend WhatsApp pass');
+      alert(err.message || 'Failed to delete registration');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -903,9 +940,9 @@ export default function AdminParentMeetPage(): JSX.Element {
 
                             <button
                               type="button"
-                              onClick={() => handleResendWhatsApp(reg.id)}
-                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
-                              title="Resend WhatsApp Pass"
+                              onClick={() => handleOpenWhatsAppFromDevice(reg)}
+                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                              title={`Open WhatsApp on this device to send pass to ${reg.whatsapp_number}`}
                             >
                               <MessageCircle className="w-4 h-4" />
                             </button>
@@ -913,7 +950,7 @@ export default function AdminParentMeetPage(): JSX.Element {
                             <button
                               type="button"
                               onClick={() => handleRegeneratePass(reg.id)}
-                              className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition"
+                              className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition cursor-pointer"
                               title="Reissue New QR Code"
                             >
                               <RotateCcw className="w-4 h-4" />
@@ -925,10 +962,19 @@ export default function AdminParentMeetPage(): JSX.Element {
                                 setOverrideRegId(reg.id);
                                 setOverrideModalOpen(true);
                               }}
-                              className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 transition"
+                              className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 transition cursor-pointer"
                               title="Admin Override / Reset Status"
                             >
                               <ShieldAlert className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openDeleteConfirm(reg)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title={`Delete registration ${reg.registration_number}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1719,10 +1765,67 @@ export default function AdminParentMeetPage(): JSX.Element {
             <button
               type="button"
               onClick={() => setQrModalUrl('')}
-              className="w-full py-2.5 rounded-xl bg-gray-900 text-white font-bold text-xs"
+              className="w-full py-2.5 rounded-xl bg-gray-900 text-white font-bold text-xs cursor-pointer"
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: DELETE REGISTRATION CONFIRMATION
+      ===================================================================== */}
+      {deleteModalOpen && deletingReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-rose-200 space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-rose-600 font-bold">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="text-base text-gray-900 font-black">Delete Registration</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Are you sure you want to permanently delete registration{' '}
+              <strong className="text-gray-900 font-mono">{deletingReg.registration_number}</strong> for{' '}
+              <strong className="text-gray-900">{deletingReg.parent_name}</strong> (Student:{' '}
+              <span className="text-sky-800 font-bold">{deletingReg.student_name}</span>)?
+            </p>
+
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-1">
+              <div className="font-bold">⚠️ Irreversible Action:</div>
+              <div>
+                This will permanently remove the parent pass, associated Expo entry, Meeting attendance, and Food token from the database.
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Deleting...' : 'Yes, Delete Registration'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

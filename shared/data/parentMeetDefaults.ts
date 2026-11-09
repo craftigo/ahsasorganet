@@ -142,3 +142,37 @@ export function formatWhatsAppMessage(
     `AHSAS – Anwarul Huda Students' Association.`
   );
 }
+
+/**
+ * Generates direct WhatsApp URL to open WhatsApp on the admin's device
+ * with the parent's phone pre-filled with the complete admission pass and card details.
+ */
+export function buildParentWhatsAppShareUrl(
+  phone: string,
+  parentName: string,
+  regNumber: string,
+  qrToken: string,
+  studentName?: string,
+  baseUrl: string = 'https://ahsasorganet.vercel.app'
+): string {
+  const cleanPhone = normalizeWhatsAppNumber(phone);
+  const passUrl = `${baseUrl}/event/pass/${qrToken}`;
+  const cardUrl = `${baseUrl}/api/parent-meet/pass/${qrToken}/card.png`;
+
+  const msg =
+    `*Assalamu Alaikum, ${parentName}!* ✨\n\n` +
+    `Your registration for *EDU FAMILIA – THARQIYA FAMILY MEET* is confirmed!\n\n` +
+    `📋 *Registration ID:* ${regNumber}` +
+    (studentName ? `\n🎓 *Student:* ${studentName}` : '') +
+    `\n📅 *Date:* 09 November 2026 (Monday)\n` +
+    `📍 *Venue:* Darussalam Tharqiya Edu Village, Koyilandy, Calicut\n\n` +
+    `🎫 *Your Digital QR Pass Link:*\n${passUrl}\n\n` +
+    `🖼️ *Download Admission Card (Image):*\n${cardUrl}\n\n` +
+    `⚠️ *Important Instructions:*\n` +
+    `• Please keep your personal QR pass ready upon arrival.\n` +
+    `• The same personal pass is used for: 1. Expo Entry, 2. Main Meeting Attendance, 3. Food Token Collection.\n\n` +
+    `Thank you,\n` +
+    `*AHSAS – Anwarul Huda Students’ Association*`;
+
+  return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+}

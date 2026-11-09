@@ -1715,6 +1715,68 @@ parentMeetRouter.post('/admin/registrations/:id/resend-whatsapp', requireAuth, r
 });
 
 // ============================================================================
+// 10B. ADMIN: Delete Registration
+// DELETE /api/parent-meet/admin/registrations/:id
+// ============================================================================
+parentMeetRouter.delete('/admin/registrations/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    let reg = inMemoryRegistrations.get(id);
+
+    if (!reg) {
+      try {
+        const { data } = await supabaseServer.from('parent_registrations').select('*').eq('id', id).maybeSingle();
+        if (data) reg = data as ParentRegistration;
+      } catch {}
+    }
+
+    if (!reg) {
+      res.status(404).json({ error: 'Registration not found' });
+      return;
+    }
+
+    // 1. Delete associated records from Supabase tables
+    try {
+      await Promise.allSettled([
+        supabaseServer.from('expo_entries').delete().eq('registration_id', id),
+        supabaseServer.from('meeting_attendance').delete().eq('registration_id', id),
+        supabaseServer.from('food_tokens').delete().eq('registration_id', id),
+        supabaseServer.from('scan_logs').delete().eq('registration_id', id),
+        supabaseServer.from('whatsapp_logs').delete().eq('registration_id', id),
+        supabaseServer.from('parent_registrations').delete().eq('id', id)
+      ]);
+    } catch (sbErr) {
+      console.warn('[ParentMeet API] Supabase delete warning:', sbErr);
+    }
+
+    // 2. Remove from in-memory maps
+    inMemoryRegistrations.delete(id);
+    inMemoryExpoEntries.delete(id);
+    inMemoryMeetingAttendance.delete(id);
+    inMemoryFoodTokens.delete(id);
+
+    // 3. Log to audit trail
+    const auditEntry = {
+      id: crypto.randomUUID(),
+      action: 'registration_deleted',
+      registration_id: id,
+      performed_by: req.user?.email || 'admin',
+      mandatory_reason: `Deleted registration ${reg.registration_number} for parent ${reg.parent_name} (${reg.student_name})`,
+      created_at: new Date().toISOString()
+    };
+    inMemoryAuditLogs.unshift(auditEntry);
+    supabaseServer.from('audit_logs').insert(auditEntry).then(() => {}, () => {});
+
+    res.json({
+      success: true,
+      message: `Registration ${reg.registration_number} (${reg.parent_name}) deleted successfully.`
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete registration' });
+  }
+});
+
+// ============================================================================
 // 11. ADMIN: Authorized Override (Expo Reset, Attendance Correction, Food Reset)
 // POST /api/parent-meet/admin/override
 // ============================================================================
